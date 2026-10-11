@@ -92,8 +92,8 @@ describe('zásah', () => {
     const ids = sim.obstacles.filter((o) => o.active).map((o) => o.id);
     stepFor(sim, 1.1, DUCKED);
     expect(sim.obstacles.filter((o) => o.active).map((o) => o.id)).toEqual(ids); // počas pauzy nič nové
-    // Po pauze sa spawn obnoví (hodiny spawnu počas pauzy stáli).
-    stepFor(sim, 3, DUCKED);
+    // Po pauze sa spawn obnoví (hodiny spawnu počas pauzy stáli; po vzore čaká aj na jeho koniec).
+    stepFor(sim, 8, DUCKED);
     expect(sim.obstacles.some((o) => o.active && !ids.includes(o.id))).toBe(true);
   });
 
@@ -142,7 +142,7 @@ describe('prekážky', () => {
 });
 
 describe('obtiažnosť', () => {
-  it('rastie s herným časom: rýchlosť 2 → 5 m/s, interval 2,5 → 1,0 s', () => {
+  it('rastie s herným časom: rýchlosť 2 → 5 m/s, interval sa skracuje', () => {
     const d = CONFIG.difficulty;
     let prev = -1;
     for (let t = 0; t <= 300; t += 5) {
@@ -152,8 +152,9 @@ describe('obtiažnosť', () => {
     }
     expect(speedAt(levelAt(0, 'medium', d), d)).toBe(2);
     expect(speedAt(levelAt(1000, 'medium', d), d)).toBe(5);
-    expect(intervalAt(levelAt(0, 'medium', d), d)).toBe(2.5);
-    expect(intervalAt(levelAt(1000, 'medium', d), d)).toBe(1);
+    expect(intervalAt(levelAt(0, 'medium', d), d)).toBe(d.intervalMax);
+    expect(intervalAt(levelAt(1000, 'medium', d), d)).toBe(d.intervalMin);
+    expect(d.intervalMin).toBeLessThan(d.intervalMax);
   });
 
   it('predvoľby: ľahká má nižšie maximum, ťažká začína nad strednou hranicou', () => {

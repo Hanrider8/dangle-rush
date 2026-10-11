@@ -33,7 +33,7 @@ export type SubPanel = 'main' | 'settings' | 'recenter';
 export type AutoPauseReason = 'visibility' | 'tracking' | 'reset' | 'sessionEnd';
 
 export type BodyKind = 'highBar' | 'sideBlock' | 'doubleBlock';
-export type FloorKind = 'lowBar' | 'coneGate';
+export type FloorKind = 'lowBar' | 'coneGate' | 'slalom' | 'stars' | 'wideDangle' | 'pokeCheck';
 export type ObstacleKind = BodyKind | FloorKind;
 
 /** Obdĺžnik v priestore (panel, tlačidlo): stred, os doprava (u), os nahor (v), normála k hráčovi (n). */

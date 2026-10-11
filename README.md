@@ -1,13 +1,21 @@
 # DangleRush MR
 
-Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stojíš so skutočnou hokejkou, miešaš skutočnú loptičku po podlahe a vyhýbaš sa virtuálnym prekážkam. Hra pozná iba pózu headsetu a ovláda sa **pohľadom**: pozrieš sa na tlačidlo a chvíľu podržíš pohľad. Ruky tak ostávajú na hokejke.
+Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stojíš so skutočnou hokejkou, miešaš skutočný puk po podlahe a prevádzaš ho cez virtuálne prekážky. Hra pozná iba pózu headsetu a ovláda sa **pohľadom**: pozrieš sa na tlačidlo a chvíľu podržíš pohľad. Ruky tak ostávajú na hokejke.
 
-- **Prekážky pre telo** sa vyhodnocujú podľa polohy hlavy:
-  - vysoká tyč (zohni sa),
-  - obranca (úkrok alebo náklon na druhú stranu),
-  - dvojitý blok (hlavou cez medzeru).
-- **Prekážky na zemi** sú len signál pre loptičku: nízka tyč a brána z kužeľov. Loptičku presuň do zelenej medzery.
-- Máš 3 životy. Skóre rastie za prekonané prekážky pre telo (combo násobiteľ) a za čas prežitia.
+Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
+
+- **Prekážky na zemi** ukazujú, kam s pukom. Zelená plocha so šípkami vždy označuje, kadiaľ má ísť puk. Hra puk nevidí, prekážky len počíta (počítadlo „Puk“ v HUD):
+  - brána z dvoch kužeľov,
+  - nízka hokejka na zemi z jednej strany,
+  - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
+  - hviezdy so svetelným stĺpom, cez ktoré prevedieš puk,
+  - široké miesanie: brána úplne na jednej strane a hneď nato na druhej,
+  - pohyblivá hokejka obrancu (poke check), ktorá sa po zemi presunie na druhú stranu, a puk musíš stiahnuť do medzery, ktorá sa otvorí.
+- **Obrancovia** (žlté a oranžové siluety) sa vyhodnocujú podľa polohy hlavy:
+  - jeden obranca: úkrok alebo náklon na druhú stranu,
+  - dvaja obrancovia: hlavou cez medzeru.
+- Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
+- Vysoká tyč (zohýbanie) je v hre stále naprogramovaná, ale v predvolenom mixe je vypnutá (`spawn.bodyWeights.highBar` v configu).
 
 Technológie: Three.js, TypeScript, Vite a Vitest. Na vývoj bez headsetu slúži IWER (emulátor WebXR od Meta). Zvuky sú syntetizované cez Web Audio a modely poskladané z primitív, takže hra nepoužíva žiadne externé assety.
 
@@ -32,7 +40,7 @@ Otvor http://localhost:5173. Na počítači sa automaticky zapne emulátor IWER 
 - Klikni na **Spustiť**. Headset a ovládače ovládaš v paneli DevUI, kde je aj „play mode“ s myšou a klávesnicou.
 - `?iwer=0` emulátor vypne.
 - `?debug=1` zapne debug overlay. Na počítači ho prepína aj kláves `` ` `` alebo F2.
-- V dev režime je v konzole objekt `window.__dr` na skriptované testovanie, napríklad `__dr.lookAt('start')`, `__dr.advance(1.5)`, `__dr.state` alebo `__dr.place('highBar', -3)`.
+- V dev režime je v konzole objekt `window.__dr` na skriptované testovanie, napríklad `__dr.lookAt('start')`, `__dr.advance(1.5)`, `__dr.state` alebo `__dr.place('slalom', -3, 1)`.
 
 Ďalšie príkazy:
 
@@ -105,7 +113,7 @@ Build používa relatívne cesty (`base: './'`), preto funguje v ľubovoľnom po
 2. Raz klikni ovládačom na **Spustiť**. WebXR na otvorenie AR session vyžaduje gesto používateľa.
 3. **Ovládače odlož.** Ďalej sa všetko ovláda pohľadom.
 4. Pri prvom spustení sa postav vzpriamene a pozri sa na tlačidlo **Kalibrovať**. Hra si uloží výšku tvojej hlavy a vycentruje plochu podľa smeru tvojho pohľadu.
-5. Chyť hokejku a polož loptičku do **stredu plochy** (krúžok na priesvitnej ploche pred tebou).
+5. Chyť hokejku a polož puk do **stredu plochy** (krúžok na priesvitnej ploche pred tebou).
 6. Pozri sa na **Štart** a podrž pohľad, kým sa nenaplní kruh. Po odpočte začnú prichádzať prekážky.
 7. **Pauza** je bokom vo výške očí, 60° od smeru hry (predvolene vpravo). V pauze sú tlačidlá Pokračovať, Nová hra, Vycentrovať a Nastavenia.
 
@@ -138,9 +146,13 @@ Všetky laditeľné hodnoty sú v [`src/config.ts`](src/config.ts). Ako prvé sa
 | `ui.buttonDeg` | 11° × 4,5° | Tlačidlá sú príliš veľké alebo malé. |
 | `ui.minButtonGapDeg` | 7° | Pohľad trafí susedné tlačidlo. |
 | `head.radius` | 12 cm | Zásahy prichádzajú príliš ľahko alebo príliš ťažko. |
-| `obstacles.highBar.heightRatio` | 0,85 | Výška vysokej tyče voči kalibrovanej výške očí. |
+| `spawn.bodyShareMin`, `.bodyShareMax` | 12 % → 25 % | Ako často príde obranca (zvyšok sú prekážky na zemi). |
+| `spawn.floorWeights` | — | Pomer typov prekážok na zemi (slalom, hviezdy, široké miesanie…). |
+| `spawn.bodyWeights.highBar` | 0 | Kladná hodnota zapne vysokú tyč (zohýbanie). |
+| `obstacles.slalom`, `.stars`, `.wideDangle`, `.pokeCheck` | — | Počty prvkov, rozostupy (časy medzi prvkami) a šírky vzorov. |
+| `fairness.maxPuckShiftSpeed` | 1,5 m/s | Ako rýchlo musíš najviac presúvať puk medzi prekážkami. |
 | `obstacles.sideBlock.innerX` | 0,1 m | Aký veľký úkrok je pri obrancovi potrebný. |
-| `playArea.width`, `.depth`, `.centerDistance` | 1,4 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre loptičku. |
+| `playArea.width`, `.depth`, `.centerDistance` | 2,0 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk. |
 | `difficulty.*` | — | Rýchlosti, intervaly, odomykanie typov a predvoľby obtiažnosti. |
 
 ## Štruktúra projektu

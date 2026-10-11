@@ -14,11 +14,15 @@ import {
   makeDoubleBlock,
   makeHighBar,
   makeLowBar,
+  makePokeCheck,
   makeSideBlock,
+  makeSlalom,
+  makeStars,
+  makeWideDangle,
 } from './obstacles';
 import { comboMultiplier } from './scoring';
 import type { Difficulty } from './settings';
-import { Spawner } from './spawner';
+import { Spawner, type WaveSpec } from './spawner';
 import type { Vec3 } from './types';
 
 /** Stav simulácie ako obyčajný objekt (testy pauzy a pokračovania). */
@@ -121,14 +125,15 @@ export class GameplaySim {
             continue;
           }
           if (o.z - o.halfDepth > h1.z + radius) this.onBodyPassed(o);
-        } else if (o.z - o.halfDepth > ballZ) {
-          // Prekážky na zemi sa nevyhodnocujú, len sa počíta, koľko ich prešlo plochou.
+        } else if (o.z - o.length - o.halfDepth > ballZ) {
+          // Prekážky na zemi sa nevyhodnocujú, len sa počíta, koľko ich prešlo plochou
+          // (vzor sa počíta raz, keď plochou prejde jeho posledný prvok).
           o.resolved = true;
           this.floorPassed++;
           this.events.push('passFloor', o.kind, o.id);
         }
       }
-      if (o.z - o.halfDepth > despawnZ) o.active = false;
+      if (o.z - o.length - o.halfDepth > despawnZ) o.active = false;
     }
 
     if (this.spawnPause > 0) {
@@ -136,8 +141,13 @@ export class GameplaySim {
       return;
     }
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0 && this.spawnWave()) {
-      this.spawnTimer += intervalAt(this.level, cfg.difficulty);
+    if (this.spawnTimer <= 0) {
+      const w = this.spawner.next(this.time, this.level, this.speed, this.floorEnabled);
+      if (w) {
+        this.spawnWave(w);
+        // Ďalšia vlna počká aj na koniec vzoru (slalom, hviezdy, široké miesanie).
+        this.spawnTimer += intervalAt(this.level, cfg.difficulty) + (w.arrivalEnd - w.arrival);
+      }
     }
   }
 
@@ -162,11 +172,10 @@ export class GameplaySim {
     };
   }
 
-  private spawnWave(): boolean {
-    const w = this.spawner.next(this.time, this.level, this.speed, this.floorEnabled);
-    if (!w) return false;
+  private spawnWave(w: WaveSpec): void {
     this.waveCount++;
-    const z = -this.cfg.obstacles.spawnDistance;
+    const cfg = this.cfg;
+    const z = -cfg.obstacles.spawnDistance;
     if (w.body) {
       const o = this.allocate(z);
       if (o) {
@@ -179,12 +188,36 @@ export class GameplaySim {
     if (w.floor) {
       const o = this.allocate(z);
       if (o) {
-        if (w.floor === 'lowBar') makeLowBar(o, w.floorSide, w.floorCoverage, this.cfg);
-        else makeConeGate(o, w.floorGapX, this.cfg);
+        // Rozostup prvkov vzoru podľa aktuálnej rýchlosti, aby čas medzi nimi sedel s floorElementTime.
+        const spacing = this.speed * w.floorElementTime;
+        switch (w.floor) {
+          case 'lowBar':
+            makeLowBar(o, w.floorSide, w.floorCoverage, cfg);
+            break;
+          case 'coneGate':
+            makeConeGate(o, w.floorCenterX, cfg);
+            break;
+          case 'slalom':
+            makeSlalom(o, w.floorCount, w.floorCenterX, w.floorSide, spacing, cfg);
+            break;
+          case 'stars':
+            makeStars(o, w.floorXs, w.floorCount, spacing, cfg);
+            break;
+          case 'wideDangle':
+            makeWideDangle(o, w.floorSide, spacing, cfg);
+            break;
+          case 'pokeCheck': {
+            // Presun hokejky skončí settleTime pred príchodom k puku a trvá sweepTime.
+            const c = cfg.obstacles.pokeCheck;
+            const z1 = -cfg.playArea.centerDistance - this.speed * c.settleTime;
+            const z0 = Math.max(z, z1 - this.speed * c.sweepTime);
+            makePokeCheck(o, w.floorSide, w.floorCoverage, z0, z1, cfg);
+            break;
+          }
+        }
         this.events.push('spawn', o.kind, o.id);
       }
     }
-    return true;
   }
 
   private allocate(z: number): Obstacle | null {

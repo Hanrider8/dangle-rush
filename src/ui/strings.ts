@@ -28,7 +28,7 @@ export const STRINGS = {
   },
   ready: {
     title: 'DangleRush',
-    hint: 'Polož loptičku do stredu plochy. Tlačidlo aktivuješ pohľadom.',
+    hint: 'Polož puk do stredu plochy. Tlačidlo aktivuješ pohľadom.',
     best: 'Rekord',
   },
   paused: {
@@ -74,6 +74,7 @@ export const STRINGS = {
     score: 'Skóre',
     combo: 'Combo',
     time: 'Čas',
+    puck: 'Puk',
     paused: 'PAUZA',
     menuLeft: '← menu vľavo',
     menuRight: 'menu vpravo →',

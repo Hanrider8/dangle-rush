@@ -1,15 +1,21 @@
 /**
  * Výber ďalšej vlny prekážok a pravidlá spravodlivosti.
  *
- * Vlna je prekážka pre telo, prekážka na zemi alebo ich kombinácia (prídu naraz).
+ * Hra trénuje hlavne miesanie puku: väčšina vĺn sú prekážky na zemi (brána, nízka tyč, slalom,
+ * hviezdy, široké miesanie, pohyblivá hokejka), obranca príde len občas (spawn.bodyShare*).
+ * Od strednej obtiažnosti môže obranca prísť spolu s bránou alebo tyčou na zemi.
+ *
  * Kandidát sa porovná s históriou vĺn podľa odhadovaného času príchodu k hráčovi:
- * - úhyb na opačnú stranu najskôr po minLateralSwitchTime,
+ * - medzi koncom predošlej vlny a začiatkom ďalšej je aspoň minWaveGapTime,
+ * - úhyb tela na opačnú stranu najskôr po minLateralSwitchTime,
  * - v kombinácii je medzera na zemi na strane, kam ide telo,
- * - loptička sa medzi vlnami nemusí presúvať rýchlejšie než maxBallShiftSpeed.
- * Ak nevyhovie žiadny kandidát, príde bezpečná vlna: samotná vysoká tyč (zohnutie ide z každej polohy).
+ * - puk sa medzi vlnami nemusí presúvať rýchlejšie než maxPuckShiftSpeed
+ *   (vnútri vzorov to zaručuje ich konštrukcia).
+ * Ak nevyhovie žiadny kandidát, príde bezpečná brána tam, kde je puk po predošlej vlne.
  */
 import type { Config } from '../config';
-import { headWindow, lowBarGap } from './obstacles';
+import { lerp } from './math';
+import { MAX_ELEMENTS, headWindow, lowBarGap } from './obstacles';
 import { Rng } from './rng';
 import type { BodyKind, FloorKind } from './types';
 
@@ -20,22 +26,46 @@ export interface WaveSpec {
   /** Dvojitý blok: stred medzery. */
   bodyGapX: number;
   floor: FloorKind | null;
-  /** Nízka tyč: strana, z ktorej vychádza. */
+  /**
+   * Strana pri prekážke na zemi: nízka tyč – odkiaľ vychádza; slalom a široké miesanie – kde ide
+   * puk pri prvom prvku; pohyblivá hokejka – kde bude medzera na konci.
+   */
   floorSide: number;
+  /** Nízka tyč a pohyblivá hokejka: aká časť šírky plochy je zakrytá. */
   floorCoverage: number;
-  /** Stred a šírka medzery na zemi (pre obe prekážky na zemi). */
-  floorGapX: number;
-  floorGapW: number;
-  /** Odhadovaný herný čas príchodu k hráčovi. */
+  /** Brána: stred; slalom: os kužeľov. */
+  floorCenterX: number;
+  /** Počet prvkov vzoru (1 pre jednoduché prekážky). */
+  floorCount: number;
+  /** Hviezdy: polohy v x. */
+  readonly floorXs: Float64Array;
+  /** Čas medzi prvkami vzoru. */
+  floorElementTime: number;
+  /** Kadiaľ ide puk pri prvom a poslednom prvku. */
+  firstPuckX: number;
+  lastPuckX: number;
+  /** Odhadovaný herný čas príchodu prvého a posledného prvku k hráčovi. */
   arrival: number;
-  /** Kde musí byť hlava (x), aby prekonala prekážku pre telo. */
+  arrivalEnd: number;
+  /** Kde musí byť hlava (x), aby prekonala obrancu. */
   headLo: number;
   headHi: number;
   /** Bezpečná náhradná vlna. */
   fallback: boolean;
 }
 
-export type FairnessRule = 'waveGap' | 'lateralSwitch' | 'comboSide' | 'comboDouble' | 'comboHighSpeed' | 'ballShift';
+export type FairnessRule =
+  | 'waveGap'
+  | 'lateralSwitch'
+  | 'comboSide'
+  | 'comboDouble'
+  | 'comboHighSpeed'
+  | 'puckShift';
+
+const BODY_KINDS: readonly BodyKind[] = ['highBar', 'sideBlock', 'doubleBlock'];
+const FLOOR_KINDS: readonly FloorKind[] = ['lowBar', 'coneGate', 'slalom', 'stars', 'wideDangle', 'pokeCheck'];
+/** Prekážky na zemi, ktoré môžu prísť spolu s obrancom. */
+const COMBO_FLOOR_KINDS: readonly FloorKind[] = ['lowBar', 'coneGate'];
 
 export function createWave(): WaveSpec {
   return {
@@ -45,9 +75,14 @@ export function createWave(): WaveSpec {
     floor: null,
     floorSide: 0,
     floorCoverage: 0,
-    floorGapX: 0,
-    floorGapW: 0,
+    floorCenterX: 0,
+    floorCount: 0,
+    floorXs: new Float64Array(MAX_ELEMENTS),
+    floorElementTime: 0,
+    firstPuckX: 0,
+    lastPuckX: 0,
     arrival: 0,
+    arrivalEnd: 0,
     headLo: -10,
     headHi: 10,
     fallback: false,
@@ -61,9 +96,14 @@ function copyWave(out: WaveSpec, w: WaveSpec): void {
   out.floor = w.floor;
   out.floorSide = w.floorSide;
   out.floorCoverage = w.floorCoverage;
-  out.floorGapX = w.floorGapX;
-  out.floorGapW = w.floorGapW;
+  out.floorCenterX = w.floorCenterX;
+  out.floorCount = w.floorCount;
+  out.floorXs.set(w.floorXs);
+  out.floorElementTime = w.floorElementTime;
+  out.firstPuckX = w.firstPuckX;
+  out.lastPuckX = w.lastPuckX;
   out.arrival = w.arrival;
+  out.arrivalEnd = w.arrivalEnd;
   out.headLo = w.headLo;
   out.headHi = w.headHi;
   out.fallback = w.fallback;
@@ -111,25 +151,33 @@ export class Spawner {
   next(time: number, level: number, speed: number, floorEnabled: boolean): WaveSpec | null {
     const arrival = time + this.cfg.obstacles.spawnDistance / speed;
     const last = this.recent(0);
-    if (last && arrival - last.arrival < this.cfg.fairness.minWaveGapTime) return null;
+    if (last && arrival - last.arrivalEnd < this.cfg.fairness.minWaveGapTime) return null;
 
+    const c = this.candidate;
     for (let attempt = 0; attempt < this.cfg.fairness.maxAttempts; attempt++) {
-      this.sample(this.candidate, level, floorEnabled);
-      this.candidate.arrival = arrival;
-      if (this.violation(this.candidate, level) === null) {
-        copyWave(this.wave, this.candidate);
+      this.sample(c, level, floorEnabled);
+      c.arrival = arrival;
+      c.arrivalEnd = arrival + (c.floorCount > 1 ? (c.floorCount - 1) * c.floorElementTime : 0);
+      if (this.violation(c, level) === null) {
+        copyWave(this.wave, c);
         this.remember(this.wave);
         return this.wave;
       }
     }
+    if (!floorEnabled) return null;
+    // Bezpečná vlna: brána tam, kde je puk po poslednej prekážke na zemi.
     const w = this.wave;
-    w.body = 'highBar';
-    w.bodySide = 0;
-    w.bodyGapX = 0;
-    w.floor = null;
+    this.clearFloor(w);
+    this.clearBody(w);
+    const max = this.cfg.obstacles.coneGate.gapMaxOffset;
+    const x = Math.max(-max, Math.min(max, this.lastFloorPuckX()));
+    w.floor = 'coneGate';
+    w.floorCount = 1;
+    w.floorCenterX = x;
+    w.firstPuckX = x;
+    w.lastPuckX = x;
     w.arrival = arrival;
-    w.headLo = -10;
-    w.headHi = 10;
+    w.arrivalEnd = arrival;
     w.fallback = true;
     this.remember(w);
     return w;
@@ -142,11 +190,11 @@ export class Spawner {
     if (w.body && w.floor) {
       if (w.body === 'sideBlock') {
         // Blok vľavo → hráč ide doprava → medzera na zemi v strede alebo vpravo (a naopak).
-        if (w.bodySide < 0 && w.floorGapX < -f.comboSideTolerance) return 'comboSide';
-        if (w.bodySide > 0 && w.floorGapX > f.comboSideTolerance) return 'comboSide';
+        if (w.bodySide < 0 && w.firstPuckX < -f.comboSideTolerance) return 'comboSide';
+        if (w.bodySide > 0 && w.firstPuckX > f.comboSideTolerance) return 'comboSide';
       } else if (w.body === 'doubleBlock') {
-        if (Math.abs(w.floorGapX - w.bodyGapX) > f.comboDoubleGapTolerance) return 'comboDouble';
-      } else if (level >= f.highSpeedLevel && Math.abs(w.floorGapX) > f.highSpeedMaxFloorOffset) {
+        if (Math.abs(w.firstPuckX - w.bodyGapX) > f.comboDoubleGapTolerance) return 'comboDouble';
+      } else if (level >= f.highSpeedLevel && Math.abs(w.firstPuckX) > f.highSpeedMaxFloorOffset) {
         return 'comboHighSpeed';
       }
     }
@@ -154,14 +202,14 @@ export class Spawner {
     let floorChecked = false;
     for (let i = 0; i < this.historyCount; i++) {
       const h = this.recent(i)!;
-      const dt = w.arrival - h.arrival;
+      const dt = w.arrival - h.arrivalEnd;
       if (dt < f.minWaveGapTime) return 'waveGap';
       if (w.body && h.body && dt < f.minLateralSwitchTime && (w.headLo > h.headHi || w.headHi < h.headLo)) {
         return 'lateralSwitch';
       }
       if (w.floor && h.floor && !floorChecked) {
         floorChecked = true; // stačí porovnať s poslednou prekážkou na zemi
-        if (Math.abs(w.floorGapX - h.floorGapX) > f.maxBallShiftSpeed * dt) return 'ballShift';
+        if (Math.abs(w.firstPuckX - h.lastPuckX) > f.maxPuckShiftSpeed * dt) return 'puckShift';
       }
     }
     return null;
@@ -173,6 +221,14 @@ export class Spawner {
     return this.history[(this.historyHead - 1 - i + HISTORY * 2) % HISTORY]!;
   }
 
+  private lastFloorPuckX(): number {
+    for (let i = 0; i < this.historyCount; i++) {
+      const h = this.recent(i)!;
+      if (h.floor) return h.lastPuckX;
+    }
+    return 0;
+  }
+
   private remember(w: WaveSpec): void {
     copyWave(this.history[this.historyHead]!, w);
     this.historyHead = (this.historyHead + 1) % HISTORY;
@@ -180,61 +236,151 @@ export class Spawner {
   }
 
   private sample(w: WaveSpec, level: number, floorEnabled: boolean): void {
-    const unlock = this.cfg.difficulty.unlock;
-    const combosOk = floorEnabled && level >= unlock.combos;
-    const pCombo = combosOk ? 0.15 + 0.2 * level : 0;
-    const pFloor = floorEnabled ? 0.3 : 0;
-    const r = this.rng.next();
-    const hasBody = r >= pCombo + pFloor || r < pCombo;
-    const hasFloor = r < pCombo + pFloor;
-
+    const s = this.cfg.spawn;
+    const bodyOk = this.weightOf(BODY_KINDS, level, s.bodyWeights) > 0;
+    let hasBody: boolean;
+    let hasFloor: boolean;
+    if (!floorEnabled) {
+      hasBody = true;
+      hasFloor = false;
+    } else {
+      hasBody = bodyOk && this.rng.next() < lerp(s.bodyShareMin, s.bodyShareMax, level);
+      hasFloor = !hasBody || (level >= this.cfg.difficulty.unlock.combos && this.rng.next() < s.comboShare);
+    }
     w.fallback = false;
-    w.body = hasBody ? this.pickBody(level) : null;
+    this.clearBody(w);
+    if (hasBody) this.sampleBody(w, level);
+    this.clearFloor(w);
+    if (hasFloor) this.sampleFloor(w, level, hasBody ? COMBO_FLOOR_KINDS : FLOOR_KINDS);
+  }
+
+  private sampleBody(w: WaveSpec, level: number): void {
+    const kind = this.pick(BODY_KINDS, level, this.cfg.spawn.bodyWeights) ?? 'sideBlock';
+    w.body = kind;
+    if (kind === 'sideBlock') w.bodySide = this.rng.sign();
+    if (kind === 'doubleBlock') {
+      const max = this.cfg.obstacles.doubleBlock.gapMaxOffset;
+      w.bodyGapX = this.rng.range(-max, max);
+    }
+    headWindow(kind, w.bodySide, w.bodyGapX, this.cfg, this.window);
+    w.headLo = this.window.lo;
+    w.headHi = this.window.hi;
+  }
+
+  private sampleFloor(w: WaveSpec, level: number, kinds: readonly FloorKind[]): void {
+    const o = this.cfg.obstacles;
+    const kind = this.pick(kinds, level, this.cfg.spawn.floorWeights) ?? 'coneGate';
+    w.floor = kind;
+    w.floorCount = 1;
+    switch (kind) {
+      case 'lowBar': {
+        w.floorSide = this.rng.sign();
+        w.floorCoverage = this.rng.range(o.lowBar.coverageMin, o.lowBar.coverageMax);
+        const gap = lowBarGap(w.floorSide, w.floorCoverage, this.cfg);
+        w.firstPuckX = w.lastPuckX = gap.gapX;
+        return;
+      }
+      case 'coneGate':
+        w.floorCenterX = this.rng.range(-o.coneGate.gapMaxOffset, o.coneGate.gapMaxOffset);
+        w.firstPuckX = w.lastPuckX = w.floorCenterX;
+        return;
+      case 'slalom': {
+        const c = o.slalom;
+        w.floorCount = c.minCones + Math.floor(this.rng.next() * (c.maxCones - c.minCones + 1));
+        w.floorCenterX = this.rng.range(-c.centerMaxOffset, c.centerMaxOffset);
+        w.floorSide = this.rng.sign();
+        w.floorElementTime = c.coneTime;
+        const lastSide = (w.floorCount - 1) % 2 === 0 ? w.floorSide : -w.floorSide;
+        w.firstPuckX = w.floorCenterX + w.floorSide * c.passOffset;
+        w.lastPuckX = w.floorCenterX + lastSide * c.passOffset;
+        return;
+      }
+      case 'stars': {
+        const c = o.stars;
+        w.floorCount = c.minStars + Math.floor(this.rng.next() * (c.maxStars - c.minStars + 1));
+        w.floorElementTime = c.starTime;
+        // Náhodná prechádzka: susedné hviezdy sú dosiahnuteľné pri maxPuckShiftSpeed.
+        const step = 0.9 * this.cfg.fairness.maxPuckShiftSpeed * c.starTime;
+        let x = this.rng.range(-c.maxOffset, c.maxOffset);
+        for (let i = 0; i < w.floorCount; i++) {
+          if (i > 0) x = Math.max(-c.maxOffset, Math.min(c.maxOffset, x + this.rng.range(-step, step)));
+          w.floorXs[i] = x;
+        }
+        w.firstPuckX = w.floorXs[0]!;
+        w.lastPuckX = w.floorXs[w.floorCount - 1]!;
+        return;
+      }
+      case 'wideDangle': {
+        const c = o.wideDangle;
+        w.floorCount = 2;
+        w.floorSide = this.rng.sign();
+        w.floorElementTime = c.gateTime;
+        w.firstPuckX = w.floorSide * c.offset;
+        w.lastPuckX = -w.floorSide * c.offset;
+        return;
+      }
+      case 'pokeCheck': {
+        const c = o.pokeCheck;
+        w.floorSide = this.rng.sign();
+        w.floorCoverage = this.rng.range(c.coverageMin, c.coverageMax);
+        w.firstPuckX = w.lastPuckX = (w.floorSide * w.floorCoverage * this.cfg.playArea.width) / 2;
+        return;
+      }
+    }
+  }
+
+  private clearBody(w: WaveSpec): void {
+    w.body = null;
     w.bodySide = 0;
     w.bodyGapX = 0;
     w.headLo = -10;
     w.headHi = 10;
-    if (w.body === 'sideBlock') w.bodySide = this.rng.sign();
-    if (w.body === 'doubleBlock') {
-      const max = this.cfg.obstacles.doubleBlock.gapMaxOffset;
-      w.bodyGapX = this.rng.range(-max, max);
-    }
-    if (w.body) {
-      headWindow(w.body, w.bodySide, w.bodyGapX, this.cfg, this.window);
-      w.headLo = this.window.lo;
-      w.headHi = this.window.hi;
-    }
+  }
 
-    w.floor = hasFloor ? this.pickFloor(level) : null;
+  private clearFloor(w: WaveSpec): void {
+    w.floor = null;
     w.floorSide = 0;
     w.floorCoverage = 0;
-    w.floorGapX = 0;
-    w.floorGapW = 0;
-    if (w.floor === 'lowBar') {
-      const c = this.cfg.obstacles.lowBar;
-      w.floorSide = this.rng.sign();
-      w.floorCoverage = this.rng.range(c.coverageMin, c.coverageMax);
-      const gap = lowBarGap(w.floorSide, w.floorCoverage, this.cfg);
-      w.floorGapX = gap.gapX;
-      w.floorGapW = gap.gapW;
-    } else if (w.floor === 'coneGate') {
-      const c = this.cfg.obstacles.coneGate;
-      w.floorGapX = this.rng.range(-c.gapMaxOffset, c.gapMaxOffset);
-      w.floorGapW = c.gapWidth;
+    w.floorCenterX = 0;
+    w.floorCount = 0;
+    w.floorElementTime = 0;
+    w.firstPuckX = 0;
+    w.lastPuckX = 0;
+  }
+
+  /** Súčet váh odomknutých typov. */
+  private weightOf<K extends BodyKind | FloorKind>(
+    kinds: readonly K[],
+    level: number,
+    weights: Record<K, number>,
+  ): number {
+    const unlock = this.cfg.difficulty.unlock;
+    let total = 0;
+    for (let i = 0; i < kinds.length; i++) {
+      const k = kinds[i]!;
+      if (level >= unlock[k]) total += weights[k];
     }
+    return total;
   }
 
-  private pickBody(level: number): BodyKind {
-    const u = this.cfg.difficulty.unlock;
-    const wSide = level >= u.sideBlock ? 1.2 : 0;
-    const wDouble = level >= u.doubleBlock ? 0.8 : 0;
-    const r = this.rng.next() * (1 + wSide + wDouble);
-    if (r < 1) return 'highBar';
-    return r < 1 + wSide ? 'sideBlock' : 'doubleBlock';
-  }
-
-  private pickFloor(level: number): FloorKind {
-    const wCone = level >= this.cfg.difficulty.unlock.coneGate ? 1 : 0;
-    return this.rng.next() * (1 + wCone) < 1 ? 'lowBar' : 'coneGate';
+  /** Vážený náhodný výber spomedzi odomknutých typov (null, ak nie je žiadny). */
+  private pick<K extends BodyKind | FloorKind>(
+    kinds: readonly K[],
+    level: number,
+    weights: Record<K, number>,
+  ): K | null {
+    const total = this.weightOf(kinds, level, weights);
+    if (total <= 0) return null;
+    const unlock = this.cfg.difficulty.unlock;
+    let r = this.rng.next() * total;
+    let lastValid: K | null = null;
+    for (let i = 0; i < kinds.length; i++) {
+      const k = kinds[i]!;
+      if (level < unlock[k] || weights[k] <= 0) continue;
+      lastValid = k;
+      r -= weights[k];
+      if (r < 0) return k;
+    }
+    return lastValid;
   }
 }

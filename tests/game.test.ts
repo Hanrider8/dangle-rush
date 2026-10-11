@@ -98,8 +98,8 @@ describe('stavový automat', () => {
   it('strata posledného života → GAME_OVER s výsledkami a rekordom', () => {
     const { game } = makeGame();
     startPlaying(game);
-    // Hráč stojí vzpriamene uprostred: prvá vysoká tyč ho trafí.
-    run(game, 60, standing(0, -45));
+    // Hráč stojí vzpriamene uprostred: obrancovia ho postupne zasiahnu.
+    playUntilGameOver(game);
     expect(game.state).toBe('GAME_OVER');
     expect(game.sim.lives).toBe(0);
     expect(game.result).not.toBeNull();
@@ -111,7 +111,7 @@ describe('stavový automat', () => {
   it('GAME_OVER → Nová hra → COUNTDOWN s čistou hrou', () => {
     const { game } = makeGame();
     startPlaying(game);
-    run(game, 60, standing(0, -45));
+    playUntilGameOver(game);
     expect(game.state).toBe('GAME_OVER');
     press(game, 'newGame');
     expect(game.state).toBe('COUNTDOWN');
@@ -218,4 +218,9 @@ function computeStart() {
   const layout = computeLayout('ready', { eyeHeight: EYE, setupHeight: EYE, pauseSide: 'right', pausePosition: 'side' }, CONFIG);
   const b = layout.buttons.find((x) => x.id === 'start')!;
   return { el: (Math.atan2(b.cy - EYE, -b.cz) * 180) / Math.PI };
+}
+
+/** Hráč stojí vzpriamene v strede, kým ho obrancovia nezasiahnu trikrát (najviac 10 minút). */
+function playUntilGameOver(game: import('../src/core/game').Game) {
+  for (let t = 0; t < 600 && game.state === 'PLAYING'; t++) run(game, 1, standing(0, -45));
 }

@@ -30,7 +30,7 @@ export const CONFIG = {
   },
 
   playArea: {
-    width: 1.4,
+    width: 2.0,
     depth: 1.0,
     /** Vzdialenosť stredu plochy pred hráčom. */
     centerDistance: 0.55,
@@ -91,16 +91,43 @@ export const CONFIG = {
     spawnDistance: 7,
     /** Zmiznú takto ďaleko za hráčom. */
     despawnBehind: 1,
-    /** Vysoká tyč: spodná hrana v heightRatio·H; kolízny objem siaha až po topY (nedá sa preskočiť). */
+    /**
+     * Vysoká tyč: spodná hrana v heightRatio·H; kolízny objem siaha až po topY (nedá sa preskočiť).
+     * V predvolenom mixe je vypnutá (spawn.bodyWeights.highBar = 0).
+     */
     highBar: { heightRatio: 0.85, thickness: 0.08, width: 3.0, topY: 2.6 },
     /** Bočný blok: od vonkajšieho okraja (outerX) po innerX za stredom, od zeme po topRatio·H. */
-    sideBlock: { topRatio: 1.1, depth: 0.3, innerX: 0.1, outerX: 1.2 },
+    sideBlock: { topRatio: 1.1, depth: 0.3, innerX: 0.1, outerX: 1.3 },
     /** Dvojitý blok: medzera pre hlavu; jej stred je najviac gapMaxOffset od osi dráhy. */
-    doubleBlock: { gapWidth: 0.45, gapMaxOffset: 0.25 },
+    doubleBlock: { gapWidth: 0.45, gapMaxOffset: 0.3 },
     /** Nízka tyč na zemi: zakryje 55–65 % šírky plochy z jednej strany. */
     lowBar: { coverageMin: 0.55, coverageMax: 0.65, height: 0.06, depth: 0.06 },
     /** Brána z dvoch kužeľov. */
-    coneGate: { gapWidth: 0.4, gapMaxOffset: 0.45, coneRadius: 0.08, coneHeight: 0.3 },
+    coneGate: { gapWidth: 0.4, gapMaxOffset: 0.75, coneRadius: 0.08, coneHeight: 0.3 },
+    /** Slalom: kužele v rade, puk ich obchádza striedavo zľava a sprava (passOffset od osi). */
+    slalom: { minCones: 3, maxCones: 5, centerMaxOffset: 0.4, passOffset: 0.28, coneTime: 0.75 },
+    /** Hviezdy na zemi, cez ktoré prevedieš puk; starTime = čas medzi hviezdami. */
+    stars: { minStars: 2, maxStars: 4, maxOffset: 0.8, starTime: 0.6, radius: 0.13 },
+    /** Široké miesanie: brána úplne na jednej strane a o gateTime neskôr na druhej. */
+    wideDangle: { offset: 0.72, gapWidth: 0.38, gateTime: 1.0 },
+    /**
+     * Pohyblivá hokejka obrancu (poke check): leží na zemi, zakrýva coverage šírky plochy a počas
+     * sweepTime sa presunie na druhú stranu. Presun skončí settleTime pred príchodom k puku.
+     */
+    pokeCheck: { coverageMin: 0.5, coverageMax: 0.6, sweepTime: 0.8, settleTime: 1.0 },
+  },
+
+  /** Mix vĺn: hra trénuje hlavne miesanie puku, obrancovia prídu len občas. */
+  spawn: {
+    /** Podiel vĺn s obrancom pri najnižšej a najvyššej úrovni (zvyšok sú prekážky na zemi). */
+    bodyShareMin: 0.12,
+    bodyShareMax: 0.25,
+    /** Váhy prekážok pre telo; vysoká tyč (zohýbanie) je vypnutá. */
+    bodyWeights: { highBar: 0, sideBlock: 1, doubleBlock: 0.6 },
+    /** Váhy prekážok na zemi. */
+    floorWeights: { lowBar: 0.7, coneGate: 1, slalom: 1.1, stars: 0.9, wideDangle: 0.8, pokeCheck: 0.9 },
+    /** Od strednej obtiažnosti: podiel vĺn s obrancom, ktoré majú aj bránu alebo tyč na zemi. */
+    comboShare: 0.5,
   },
 
   rules: {
@@ -121,10 +148,22 @@ export const CONFIG = {
   difficulty: {
     speedMin: 2,
     speedMax: 5,
-    intervalMax: 2.5,
+    /** Interval medzi vlnami (2,0 → 1,0 s); po vzore sa predĺži o jeho dĺžku. */
+    intervalMax: 2.0,
     intervalMin: 1.0,
     /** Úroveň d (0–1), od ktorej sa odomknú typy prekážok; 0,4 = „stredná obtiažnosť“. */
-    unlock: { sideBlock: 0.15, coneGate: 0.15, doubleBlock: 0.4, combos: 0.4 },
+    unlock: {
+      highBar: 0,
+      sideBlock: 0.15,
+      doubleBlock: 0.45,
+      lowBar: 0,
+      coneGate: 0,
+      stars: 0,
+      slalom: 0.05,
+      wideDangle: 0.2,
+      pokeCheck: 0.3,
+      combos: 0.4,
+    },
     presets: {
       easy: { startLevel: 0, rampSeconds: 240, maxLevel: 0.7 },
       medium: { startLevel: 0, rampSeconds: 150, maxLevel: 1 },
@@ -139,8 +178,8 @@ export const CONFIG = {
     minReactionTime: 1.2,
     /** Úhyb na opačnú stranu najskôr po tomto čase. */
     minLateralSwitchTime: 1.2,
-    /** Najväčšia požadovaná rýchlosť presunu loptičky medzi medzerami na zemi. */
-    maxBallShiftSpeed: 1.0,
+    /** Najväčšia požadovaná rýchlosť presunu puku medzi prekážkami na zemi. */
+    maxPuckShiftSpeed: 1.5,
     /** Kombinácia s bočným blokom: medzera na zemi nesmie byť ďalej než toto na strane bloku. */
     comboSideTolerance: 0.15,
     /** Kombinácia s dvojitým blokom: medzera na zemi pri medzere bloku. */

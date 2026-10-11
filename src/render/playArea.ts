@@ -1,5 +1,5 @@
 /**
- * Plocha pre loptičku a slabé čiary dráhy na reálnej podlahe.
+ * Plocha pre puk a slabé čiary dráhy na reálnej podlahe.
  * Statické čiary sú zlúčené do jedného meshu, výplň plochy je druhý mesh.
  */
 import {
@@ -90,7 +90,7 @@ export function createPlayArea(): Group {
   lines.segment(-w / 2, far, w / 2, far, 0.02, 0.7);
   lines.segment(-w / 2, near, -w / 2, far, 0.02, 0.7);
   lines.segment(w / 2, near, w / 2, far, 0.02, 0.7);
-  // Stred plochy: sem patrí loptička na začiatku.
+  // Stred plochy: sem patrí puk na začiatku.
   lines.ring(0, -centerDistance, 0.07, 0.012, 0.8);
   lines.segment(-0.03, -centerDistance, 0.03, -centerDistance, 0.008, 0.8);
   lines.segment(0, -centerDistance - 0.03, 0, -centerDistance + 0.03, 0.008, 0.8);

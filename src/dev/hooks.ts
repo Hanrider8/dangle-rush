@@ -6,7 +6,17 @@ import type { XRDevice } from 'iwer';
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
 import type { App } from '../app';
 import { CONFIG } from '../config';
-import { makeConeGate, makeDoubleBlock, makeHighBar, makeLowBar, makeSideBlock } from '../core/obstacles';
+import {
+  makeConeGate,
+  makeDoubleBlock,
+  makeHighBar,
+  makeLowBar,
+  makePokeCheck,
+  makeSideBlock,
+  makeSlalom,
+  makeStars,
+  makeWideDangle,
+} from '../core/obstacles';
 import type { ButtonId, ObstacleKind } from '../core/types';
 
 export function installHooks(app: App, device: XRDevice | null): void {
@@ -96,6 +106,10 @@ export function installHooks(app: App, device: XRDevice | null): void {
       else if (kind === 'sideBlock') makeSideBlock(o, param, sim.eyeHeight, CONFIG);
       else if (kind === 'doubleBlock') makeDoubleBlock(o, param, sim.eyeHeight, CONFIG);
       else if (kind === 'lowBar') makeLowBar(o, param, 0.6, CONFIG);
+      else if (kind === 'slalom') makeSlalom(o, 4, 0, param, 1.3, CONFIG);
+      else if (kind === 'stars') makeStars(o, [-0.6, -0.1, 0.4], 3, 1.1, CONFIG);
+      else if (kind === 'wideDangle') makeWideDangle(o, param, 1.8, CONFIG);
+      else if (kind === 'pokeCheck') makePokeCheck(o, param, 0.55, z - 0.5, z + 2, CONFIG);
       else makeConeGate(o, param, CONFIG);
       o.active = true;
       o.resolved = false;

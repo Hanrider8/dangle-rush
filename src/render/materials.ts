@@ -14,6 +14,8 @@ import {
   MeshLambertMaterial,
   PlaneGeometry,
   SRGBColorSpace,
+  Shape,
+  ShapeGeometry,
   SphereGeometry,
   type BufferGeometry,
 } from 'three';
@@ -26,7 +28,22 @@ export const PALETTE = {
   lowBar: 0x22e3ff,
   cone: 0xff5a1a,
   gap: 0x2bff88,
+  star: 0xffd84d,
+  stick: 0xff3b3b,
 };
+
+/** Päťcípa hviezda s polomerom 1, ležiaca na podlahe. */
+function starGeometry(): BufferGeometry {
+  const shape = new Shape();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? 1 : 0.45;
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  shape.closePath();
+  return new ShapeGeometry(shape).rotateX(-Math.PI / 2);
+}
 
 function canvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D, s: number) => void): CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -116,6 +133,8 @@ export function createResources() {
       rod: new CylinderGeometry(0.5, 0.5, 1, 12).rotateZ(Math.PI / 2),
       cone: new ConeGeometry(1, 1, 14).translate(0, 0.5, 0),
       defender: defenderGeometry(),
+      star: starGeometry(),
+      beam: new CylinderGeometry(0.5, 0.5, 1, 12, 1, true).translate(0, 0.5, 0),
     },
     material: {
       highBar: solid(PALETTE.highBar),
@@ -153,6 +172,17 @@ export function createResources() {
         side: DoubleSide,
       }),
       gapEdge: solid(PALETTE.gap),
+      star: new MeshBasicMaterial({ color: PALETTE.star, side: DoubleSide, toneMapped: false }),
+      starBeam: new MeshBasicMaterial({
+        color: PALETTE.star,
+        map: fadeUpTexture,
+        transparent: true,
+        blending: AdditiveBlending,
+        depthWrite: false,
+        side: DoubleSide,
+      }),
+      stick: solid(PALETTE.stick),
+      stickRim: rim(PALETTE.stick),
       shadow: new MeshBasicMaterial({
         color: 0x000000,
         map: shadowTexture,

@@ -28,6 +28,7 @@ export class Hud {
   private lives = -1;
   private score = -1;
   private combo = -1;
+  private floor = -1;
   private seconds = -1;
   private paused = false;
   private hint = '';
@@ -65,6 +66,7 @@ export class Hud {
       sim.lives === this.lives &&
       score === this.score &&
       sim.combo === this.combo &&
+      sim.floorPassed === this.floor &&
       seconds === this.seconds &&
       paused === this.paused &&
       hint === this.hint
@@ -74,6 +76,7 @@ export class Hud {
     this.lives = sim.lives;
     this.score = score;
     this.combo = sim.combo;
+    this.floor = sim.floorPassed;
     this.seconds = seconds;
     this.paused = paused;
     this.hint = hint;
@@ -101,18 +104,25 @@ export class Hud {
       ctx.fillStyle = multiplier > 1 ? COLORS.accent : COLORS.muted;
       ctx.fillText(`×${multiplier}`, w * 0.95, row1);
 
+      ctx.textAlign = 'center';
+      if (paused) {
+        // V pauze má spodný riadok celý pokyn, kde je menu.
+        ctx.font = `800 ${small}px ${FONT_FAMILY}`;
+        ctx.fillStyle = COLORS.warn;
+        ctx.fillText(`${STRINGS.hud.paused} · ${hint}`, w * 0.5, row2);
+        return;
+      }
       ctx.font = `600 ${small}px ${FONT_FAMILY}`;
       ctx.textAlign = 'left';
       ctx.fillStyle = COLORS.muted;
       ctx.fillText(`${STRINGS.hud.time} ${formatClock(sim.time)}`, w * 0.05, row2);
       ctx.textAlign = 'right';
       ctx.fillText(`${STRINGS.hud.combo} ${sim.combo}`, w * 0.95, row2);
-      if (paused) {
-        ctx.textAlign = 'center';
-        ctx.font = `800 ${small}px ${FONT_FAMILY}`;
-        ctx.fillStyle = COLORS.warn;
-        ctx.fillText(`${STRINGS.hud.paused} · ${hint}`, w * 0.5, row2);
-      }
+      // Prekážky na zemi, ktoré prešli plochou (puk hra nevidí, len počíta).
+      ctx.textAlign = 'center';
+      ctx.font = `700 ${small}px ${FONT_FAMILY}`;
+      ctx.fillStyle = COLORS.accent;
+      ctx.fillText(`${STRINGS.hud.puck} ${sim.floorPassed}`, w * 0.5, row2);
     });
   }
 }
