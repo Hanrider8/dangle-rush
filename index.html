@@ -44,6 +44,49 @@
       .safety { margin-top: 28px; font-size: 0.9rem; color: var(--muted); }
       #app canvas { display: block; }
       body.in-xr #landing { display: none; }
+      /* Test kamery (?cam=1) */
+      #cam { margin: 0 0 28px; padding: 20px 0 4px; border-top: 1px solid #23324a; border-bottom: 1px solid #23324a; }
+      #cam-details { margin-top: 24px; }
+      #cam-details summary { cursor: pointer; font-weight: 700; color: var(--fg); }
+      #cam h2 { margin: 0 0 8px; font-size: 1.4rem; }
+      #cam .note { color: var(--muted); margin: 0 0 16px; }
+      #cam .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+      #cam label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.9rem; }
+      #cam label.wide { grid-column: 1 / -1; }
+      #cam select, .secondary {
+        padding: 10px 12px;
+        font: 600 1rem system-ui, sans-serif;
+        color: var(--fg);
+        background: #16233a;
+        border: 1px solid #2c3f5e;
+        border-radius: 10px;
+      }
+      #cam-enable {
+        width: 100%;
+        padding: 14px;
+        font: 700 1.15rem system-ui, sans-serif;
+        color: #04140b;
+        background: #8fd3ff;
+        border: 0;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+      #cam-enable:disabled { background: #334155; color: #94a3b8; }
+      #cam-status { min-height: 1.5em; color: var(--muted); }
+      #cam-status.error { color: var(--warn); }
+      #cam-preview { display: block; width: 100%; max-width: 480px; background: #000; border-radius: 10px; }
+      #cam-details .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 10px; }
+      .secondary { cursor: pointer; }
+      #cam-report {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #070d18;
+        border: 1px solid #23324a;
+        border-radius: 10px;
+        padding: 12px;
+        margin: 0;
+      }
     </style>
   </head>
   <body>
@@ -59,8 +102,51 @@
         <li>Chyť hokejku a polož puk do stredu plochy na podlahe.</li>
         <li>Tlačidlo v hre aktivuješ tak, že sa naň chvíľu pozeráš.</li>
       </ol>
+      <section id="cam" hidden>
+        <h2>Test kamery</h2>
+        <p class="note">
+          Hra zatiaľ puk nevyhodnocuje. Test ukáže, čo vidí kamera headsetu, kde našla puk a kam ho
+          premietla na podlahu.
+        </p>
+        <div class="grid">
+          <label>Čo sledovať
+            <select id="cam-target">
+              <option value="green">Zelený biscuit</option>
+              <option value="orange">Oranžová loptička</option>
+            </select>
+          </label>
+          <label>Rozlíšenie
+            <select id="cam-res">
+              <option value="1280x960">1280 × 960</option>
+              <option value="1280x1280">1280 × 1280</option>
+              <option value="640x480">640 × 480</option>
+            </select>
+          </label>
+          <label class="wide">Kamera
+            <select id="cam-device" disabled><option>po povolení kamery</option></select>
+          </label>
+        </div>
+        <button id="cam-enable" type="button">Povoliť kameru</button>
+        <p id="cam-status" role="status"></p>
+        <canvas id="cam-preview" width="320" height="240"></canvas>
+        <ol>
+          <li>Povoľ kameru a pozri sa na puk na zemi: v náhľade má byť fialový a v žltom krúžku.</li>
+          <li>Klikni na <b>Spustiť</b>. V AR polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj
+            okolo neho: vľavo, vpravo, bližšie a ďalej. Puk sa pritom nesmie hýbať.</li>
+          <li>Keď sa na puku zastaví zelený krúžok, kalibrácia je hotová (panel vľavo). Potom skús miešať.</li>
+          <li>Po návrate sem skopíruj alebo odfoť správu (dole pod Spustiť).</li>
+        </ol>
+      </section>
       <button id="start" type="button" disabled>Spustiť</button>
       <p id="status" role="status">Overujem podporu WebXR…</p>
+      <details id="cam-details" hidden>
+        <summary>Správa z testu kamery</summary>
+        <div class="actions">
+          <button id="cam-copy" class="secondary" type="button">Kopírovať správu</button>
+          <button id="cam-reset" class="secondary" type="button">Zmazať kalibráciu kamery</button>
+        </div>
+        <pre id="cam-report"></pre>
+      </details>
       <p class="safety">
         Pozor na nábytok, televízor a ľudí okolo, keď švihneš hokejkou. Pri prvom spustení sa hra
         opýta na kalibráciu výšky hlavy.

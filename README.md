@@ -124,6 +124,20 @@ Build používa relatívne cesty (`base: './'`), preto funguje v ľubovoľnom po
 - **Nastavenia** sa ukladajú v prehliadači: čas pohľadu, strana a poloha pauzy (bok alebo hore), obtiažnosť, prekážky na zemi, dĺžka odpočtu, nová kalibrácia a debug.
 - Hra sa sama pozastaví, keď otvoríš Quest menu, keď sa stratí tracking alebo keď sa zmení priestor.
 
+## Test kamery: sledovanie puku (experiment)
+
+Hra puk zatiaľ nevidí. Test `?cam=1` skúša, či ho zvládne nájsť kamera headsetu:
+**https://hanrider8.github.io/dangle-rush/?cam=1&debug=1**
+
+1. Na úvodnej stránke vyber, čo sledovať (najlepšie **zelený biscuit**: na svetlom dreve je zelená výrazná, oranžová
+   má podobný odtieň ako drevo), a klikni na **Povoliť kameru**. Povolenie „Kamery headsetu“ sa dá dať len tu, nie v AR.
+2. V náhľade má byť puk fialový a v žltom krúžku.
+3. Klikni na **Spustiť**. V AR polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj okolo neho
+   (vľavo, vpravo, bližšie, ďalej). Kalibrácia kamery sa urobí sama a uloží sa.
+4. Zelený krúžok na podlahe ukazuje, kde je puk podľa kamery; modrý obrys ukazuje, čo kamera vidí. Panel vľavo
+   vpredu má náhľad kamery a čísla (fps, úspešnosť hľadania, poloha, kalibrácia).
+5. Po návrate z AR je dole na stránke **Správa z testu kamery** na skopírovanie alebo odfotenie.
+
 ## Bezpečnosť
 
 - Uvoľni **voľný priestor aspoň 2,5 × 2,5 m**.
@@ -167,6 +181,8 @@ src/
 ├── core/          čistá herná logika bez three.js a DOM: stavový automat, pohľad (dwell),
 │                  rozloženie tlačidiel, spawn a spravodlivosť, swept kolízie, skóre,
 │                  obtiažnosť, nastavenia; deterministická, s fixným krokom 1/120 s
+├── tracking/      sledovanie puku kamerou: hľadanie farebného puku, model kamery, samokalibrácia
+├── camera/        test kamery `?cam=1` (getUserMedia, workery, krúžok a panel v AR, správa)
 ├── xr/            session (immersive-ar + local-floor), póza hlavy, strata trackingu,
 │                  ignorovanie vstupov z ovládačov a rúk
 ├── render/        scéna, plocha pre puk, meshe prekážok, kurzor pohľadu, vinieta
@@ -188,4 +204,6 @@ tests/             unit testy (Vitest)
 - skóre, combo, životy, krivky obtiažnosti,
 - spravodlivosť spawnu: property test na 500 seedoch × 3 obtiažnosti × 5 minút,
 - rozostupy tlačidiel,
-- simulácia 5 minút bežného hrania, počas ktorej sa Pauza sama nespustí.
+- simulácia 5 minút bežného hrania, počas ktorej sa Pauza sama nespustí,
+- sledovanie puku kamerou: nájdenie zeleného biscuitu a oranžovej loptičky na dreve, premietnutie na podlahu,
+  samokalibrácia (nájde ohnisko, natočenie a oneskorenie kamery aj polohu puku, hýbajúci sa puk neprijme).

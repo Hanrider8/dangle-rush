@@ -63,11 +63,20 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   settings.ts   nastavenia a rekordy cez rozhranie KeyValueStorage (localStorage / MemoryStorage)
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty)
+src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts)
+  detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička
+  cameraModel.ts dierková komora pripevnená k hlave: pixel ↔ lúč, priesečník s podlahou, záber na podlahe
+  calibration.ts samokalibrácia z nehybného puku (Levenberg–Marquardt: f, stred, natočenie, poloha, oneskorenie)
+  poseHistory.ts história pózy hlavy (póza v čase zachytenia snímky), timeSync.ts časové značky kamery → čas
+src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
+                frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
+                záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
 src/xr/         session (immersive-ar, foveation, 90 Hz), póza hlavy z XRFrame, strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
-src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts
+src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts,
+                camSim.ts (virtuálna kamera pre `?cam=1&camsim=1`)
 src/app.ts      slučka: XRFrame → hlava → Game.update → events → render/ui → renderer.render
 ```
 
@@ -90,6 +99,10 @@ Kľúčové invarianty:
   Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
 - **Pohyblivá hokejka** závisí len od `z` (`pokeCheckCenter`), takže ju pauza zmrazí. Presun skončí `settleTime`
   pred príchodom k puku.
+- **Test kamery (`?cam=1`)** hru nevyhodnocuje a bez parametra sa vôbec nenačíta. Kamera headsetu ide cez
+  `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
+  takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
+  (`TimeSync` + oneskorenie z kalibrácie). Kalibrácia sa ukladá do localStorage podľa názvu kamery a rozlíšenia.
 
 ## Typické úlohy
 
@@ -137,6 +150,14 @@ Skriptovanie cez `window.__dr`:
 | `log()`, `snapshot()`, `demo(true/false)` | záznam udalostí, stav simulácie, autopilot |
 
 Statické zábery je najlepšie robiť v pauze (`game.autoPause('visibility')`), lebo prekážky stoja.
+
+**Test kamery bez headsetu:** `?cam=1&camsim=1&debug=1` nahradí kameru virtuálnou kamerou (`dev/camSim.ts`, známe
+parametre v `SIM_CAMERA`), ktorá kreslí zelený biscuit na drevenej podlahe z pohľadu emulovanej hlavy. Postup:
+„Povoliť kameru“ → „Spustiť“ → kalibrácia výšky → asi 14 s pozerať okolo biscuitu (`__dr.look` v requestAnimationFrame)
+→ `__drCam.tracker.paramsSource === 'kalibrácia'` a `__drCam.tracker.puck.playX/Z` blízko `__dr.camSim.ball`.
+`__drCam.report()` vráti textovú správu. V headless Chromiu (SwiftShader) pred „Spustiť“ zmenši framebuffer
+`__dr.app.renderer.xr.setFramebufferScaleFactor(0.2)`, inak má história pózy medzery nad 100 ms a kalibrácia nemá
+z čoho počítať. `?cammstp=0` vynúti záložnú cestu cez `<video>`.
 
 ## Nástrahy
 

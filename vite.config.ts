@@ -5,6 +5,8 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 // `npm run dev:usb` → HTTP pre `adb reverse tcp:5173 tcp:5173` a emulátor; localhost je secure context
 export default defineConfig(({ mode }) => ({
   base: './',
+  // Čas buildu: v správe testu kamery je vidieť, ktorá verzia beží na Queste.
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC') },
   plugins: mode === 'usb' ? [] : [basicSsl()],
   server: { host: true, port: 5173, strictPort: true },
   preview: { host: true, port: 4173, strictPort: true },

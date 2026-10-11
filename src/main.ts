@@ -35,12 +35,26 @@ async function main(): Promise<void> {
     device = await installIwer();
   }
 
-  const app = new App(container, safeStorage());
-  if (new URLSearchParams(window.location.search).get('debug') === '1') app.game.settings.debug = true;
+  const params = new URLSearchParams(window.location.search);
+  const storage = safeStorage();
+  const app = new App(container, storage);
+  if (params.get('debug') === '1') app.game.settings.debug = true;
 
   if (import.meta.env.DEV) {
     const { installHooks } = await import('./dev/hooks');
     installHooks(app, device);
+  }
+
+  // `?cam=1`: test sledovania puku kamerou headsetu (samostatný chunk, bežnú hru neovplyvní).
+  if (params.get('cam') === '1') {
+    const { installCameraTest } = await import('./camera/cameraTest');
+    let simStream: (() => MediaStream) | undefined;
+    // Len vývoj: `?camsim=1` nahradí kameru virtuálnou kamerou v emulátore.
+    if (import.meta.env.DEV && device && params.get('camsim') === '1') {
+      const { installCameraSim } = await import('./dev/camSim');
+      simStream = installCameraSim(app, device);
+    }
+    installCameraTest(app, storage, { allowProcessor: params.get('cammstp') !== '0', simStream });
   }
 
   if (!(await isImmersiveArSupported())) {
@@ -55,7 +69,7 @@ async function main(): Promise<void> {
   showStatus('Pripravené. Klikni ovládačom na Spustiť.');
 
   // Len vývoj: `?demo=1` spustí AR session v emulátore a autopilota (ukážka bez ovládania).
-  if (import.meta.env.DEV && device && new URLSearchParams(window.location.search).get('demo') === '1') {
+  if (import.meta.env.DEV && device && params.get('demo') === '1') {
     button.disabled = true;
     app.start().then(
       () => {

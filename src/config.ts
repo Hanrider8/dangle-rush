@@ -209,6 +209,70 @@ export const CONFIG = {
     targetFrameRate: 90,
   },
 
+  /**
+   * Test sledovania puku kamerou headsetu (`?cam=1`). Hra ho zatiaľ nevyhodnocuje, test len ukáže,
+   * čo kamera vidí, kde našla farebný puk a kam ho premietla na podlahu.
+   * Pixely sú v rozlíšení kamery (napr. 1280 × 960), časy v milisekundách.
+   */
+  camera: {
+    /** Požadované rozlíšenie a snímková frekvencia (prehliadač môže dať iné). */
+    width: 1280,
+    height: 960,
+    frameRate: 60,
+    /** Šírka zmenšeného obrazu na hľadanie puku (výška podľa pomeru strán kamery). */
+    procWidth: 320,
+    /** Ako často worker pošle náhľad kamery (ms). */
+    previewIntervalMs: 120,
+    /**
+     * Farba cieľa: odtieň v stupňoch (hueMin–hueMax), najmenšia sýtosť a jas (0–1).
+     * Svetlé drevo má odtieň ~25–45° a nízku sýtosť, preto má oranžová prísnejšiu sýtosť.
+     * centerHeight je výška stredu cieľa nad podlahou, radius jeho polomer (m).
+     */
+    targets: {
+      green: { hueMin: 70, hueMax: 170, satMin: 0.35, valMin: 0.16, centerHeight: 0.015, radius: 0.038 },
+      orange: { hueMin: 0, hueMax: 36, satMin: 0.62, valMin: 0.3, centerHeight: 0.034, radius: 0.034 },
+    },
+    detector: {
+      /** Najmenšia a najväčšia plocha škvrny (pixely zmenšeného obrazu, podiel obrazu). */
+      minArea: 4,
+      maxAreaFraction: 0.08,
+      /** Plocha škvrny / plocha obdĺžnika okolo nej (kruh ≈ 0,79). */
+      minFill: 0.4,
+      /** Najväčší pomer strán obdĺžnika okolo škvrny (puk rozmazaný pohybom je pretiahnutý). */
+      maxAspect: 3,
+    },
+    /** Odhad kamery, kým neprebehne kalibrácia. */
+    guess: {
+      hfovDeg: 80,
+      latencyMs: 60,
+      /** Poloha pravej kamery voči stredu medzi očami (m): +x doprava, +y hore, −z dopredu; ľavá má −x. */
+      offset: { x: 0.032, y: -0.01, z: -0.08 },
+    },
+    /** Samokalibrácia: puk leží na zemi, hráč sa naň pozerá a krúži hlavou. */
+    calibration: {
+      /** Z akého úseku sa berú pozorovania a ako často sa rieši. */
+      windowMs: 8000,
+      intervalMs: 1500,
+      minObservations: 60,
+      /** Puk musí prejsť aspoň takú časť šírky a výšky obrazu. */
+      minCoverageU: 0.25,
+      minCoverageV: 0.2,
+      /** Rozptyl smeru pohľadu počas pozorovaní (stupne). */
+      minHeadRangeDeg: 10,
+      /**
+       * Prijme sa, ak je stredná chyba premietnutia najviac takýto uhol (0,8° ≈ 2,4 cm na 1,7 m).
+       * Kým sa nehrá, kalibrácia beží ďalej a lepší výsledok (viac bodov, menšia chyba) nahradí horší.
+       */
+      maxRmsDeg: 0.8,
+      /** Podiel pozorovaní, ktoré musia zostať po vyradení odľahlých. */
+      minInlierRatio: 0.7,
+      /** Rozsah oneskorenia kamery (ms). */
+      maxLatencyMs: 300,
+    },
+    /** Krúžok na podlahe: po freshMs zožltne, po hideMs zmizne. */
+    ring: { freshMs: 200, hideMs: 1000 },
+  },
+
   audio: { volume: 0.6 },
 };
 
