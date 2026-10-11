@@ -1,0 +1,172 @@
+/**
+ * Všetky laditeľné konštanty hry na jednom mieste.
+ *
+ * Jednotky: metre, sekundy a stupne, ak nie je uvedené inak.
+ * Herný priestor: počiatok na podlahe pod hlavou v čase centrovania, −Z je smer hry, +X doprava.
+ * H je kalibrovaná výška očí hráča v stoji (výška headsetu nad podlahou).
+ */
+export const CONFIG = {
+  /** Simulácia s fixným časovým krokom. */
+  sim: {
+    fixedDt: 1 / 120,
+    /** Dlhší snímok (zásek, návrat z pozadia) sa oreže na túto dĺžku. */
+    maxFrameDt: 0.1,
+    maxStepsPerFrame: 12,
+  },
+
+  head: {
+    /** Polomer gule hlavy pre kolízie s prekážkami. */
+    radius: 0.12,
+    /** Výška očí, kým hráč neprejde kalibráciou. */
+    defaultEyeHeight: 1.65,
+    /** Rozsah, ktorý kalibrácia prijme. */
+    minEyeHeight: 1.0,
+    maxEyeHeight: 2.2,
+  },
+
+  tracking: {
+    /** Ako dlho môže chýbať tracking hlavy, kým hra automaticky pauzne. */
+    lostGrace: 0.3,
+  },
+
+  playArea: {
+    width: 1.4,
+    depth: 1.0,
+    /** Vzdialenosť stredu plochy pred hráčom. */
+    centerDistance: 0.55,
+  },
+
+  gaze: {
+    /** Predvolený čas dwell; v nastaveniach dwellMin až dwellMax po krokoch dwellStep. */
+    dwellTime: 1.2,
+    dwellMin: 0.8,
+    dwellMax: 2.0,
+    dwellStep: 0.2,
+    /** Plnenie sa preruší, až keď pohľad prekročí hranu tlačidla o tento uhol. */
+    hysteresisDeg: 3,
+    /** Krátke výpadky pohľadu, ktoré plnenie nerušia. */
+    graceTime: 0.15,
+    /** Po aktivácii sú všetky tlačidlá na tento čas neaktívne. */
+    cooldown: 1.0,
+    /** Kurzor sa ukáže, len keď je pohľad do tohto uhla od niektorého aktívneho tlačidla. */
+    cursorMaxAngleDeg: 20,
+    /** Interval tichého tiku počas plnenia. */
+    tickInterval: 0.2,
+  },
+
+  ui: {
+    /** Panely SETUP, READY a GAME_OVER: vzdialenosť pred hráčom. */
+    frontDistance: 2.0,
+    /** Bežné tlačidlo (šírka × výška) v stupňoch zorného poľa. */
+    buttonDeg: { w: 11, h: 4.5 },
+    /** Dvojriadkové tlačidlo v nastaveniach. */
+    settingsButtonDeg: { w: 15, h: 5.5 },
+    /**
+     * Uhlová medzera medzi susednými tlačidlami. Musí byť väčšia ako 2 × hysteréza: na okrajoch
+     * plochého panelu sa skutočná medzera mierne zmenší.
+     */
+    minButtonGapDeg: 7,
+    /** Rad tlačidiel na prednom paneli pod úrovňou očí (pohľad z kalibrácie naň nepadne). */
+    frontRowElevationDeg: -10,
+    /** Panel nastavení sa pri polohe pauzy „hore“ zníži najviac na túto výšku. */
+    maxPanelElevationDeg: 20,
+    /** Vycentrovať: čas na otočenie sa smerom hry, kým sa vezme póza. */
+    recenterDelay: 3,
+    /** Odpočet sa zobrazuje pred hráčom v tejto vzdialenosti. */
+    countdownDistance: 2.6,
+  },
+
+  pauseButton: {
+    distance: 1.6,
+    /** Poloha „bok“: vo výške očí, takýto uhol od smeru hry. */
+    sideAzimuthDeg: 60,
+    /** Poloha „hore“: v smere hry, takýto uhol nad horizontom. */
+    topElevationDeg: 35,
+  },
+
+  countdown: { default: 2, min: 1, max: 5 },
+
+  obstacles: {
+    /** Prekážky sa objavia takto ďaleko pred hráčom (koniec dráhy). */
+    spawnDistance: 7,
+    /** Zmiznú takto ďaleko za hráčom. */
+    despawnBehind: 1,
+    /** Vysoká tyč: spodná hrana v heightRatio·H; kolízny objem siaha až po topY (nedá sa preskočiť). */
+    highBar: { heightRatio: 0.85, thickness: 0.08, width: 3.0, topY: 2.6 },
+    /** Bočný blok: od vonkajšieho okraja (outerX) po innerX za stredom, od zeme po topRatio·H. */
+    sideBlock: { topRatio: 1.1, depth: 0.3, innerX: 0.1, outerX: 1.2 },
+    /** Dvojitý blok: medzera pre hlavu; jej stred je najviac gapMaxOffset od osi dráhy. */
+    doubleBlock: { gapWidth: 0.45, gapMaxOffset: 0.25 },
+    /** Nízka tyč na zemi: zakryje 55–65 % šírky plochy z jednej strany. */
+    lowBar: { coverageMin: 0.55, coverageMax: 0.65, height: 0.06, depth: 0.06 },
+    /** Brána z dvoch kužeľov. */
+    coneGate: { gapWidth: 0.4, gapMaxOffset: 0.45, coneRadius: 0.08, coneHeight: 0.3 },
+  },
+
+  rules: {
+    lives: 3,
+    /** Prvá vlna príde po tomto čase od štartu. */
+    firstSpawnDelay: 0.8,
+    /** Pri zásahu zmiznú prekážky bližšie ako táto vzdialenosť pred hráčom. */
+    hitClearDistance: 3.5,
+    /** Po zásahu sa spawn pozastaví na tento čas. */
+    hitSpawnPause: 1.5,
+    scorePerBody: 100,
+    /** Násobiteľ rastie o 1 po každých comboStep prekonaných prekážkach za sebou. */
+    comboStep: 5,
+    maxMultiplier: 5,
+    timeBonusPerSecond: 10,
+  },
+
+  difficulty: {
+    speedMin: 2,
+    speedMax: 5,
+    intervalMax: 2.5,
+    intervalMin: 1.0,
+    /** Úroveň d (0–1), od ktorej sa odomknú typy prekážok; 0,4 = „stredná obtiažnosť“. */
+    unlock: { sideBlock: 0.15, coneGate: 0.15, doubleBlock: 0.4, combos: 0.4 },
+    presets: {
+      easy: { startLevel: 0, rampSeconds: 240, maxLevel: 0.7 },
+      medium: { startLevel: 0, rampSeconds: 150, maxLevel: 1 },
+      hard: { startLevel: 0.45, rampSeconds: 110, maxLevel: 1 },
+    },
+  },
+
+  fairness: {
+    /** Minimálny čas medzi príchodmi dvoch vĺn k hráčovi. */
+    minWaveGapTime: 0.9,
+    /** Prekážka musí byť viditeľná aspoň takto dlho pred príchodom. */
+    minReactionTime: 1.2,
+    /** Úhyb na opačnú stranu najskôr po tomto čase. */
+    minLateralSwitchTime: 1.2,
+    /** Najväčšia požadovaná rýchlosť presunu loptičky medzi medzerami na zemi. */
+    maxBallShiftSpeed: 1.0,
+    /** Kombinácia s bočným blokom: medzera na zemi nesmie byť ďalej než toto na strane bloku. */
+    comboSideTolerance: 0.15,
+    /** Kombinácia s dvojitým blokom: medzera na zemi pri medzere bloku. */
+    comboDoubleGapTolerance: 0.35,
+    /** Od tejto úrovne nie sú pri zohýbaní krajné medzery na zemi. */
+    highSpeedLevel: 0.7,
+    highSpeedMaxFloorOffset: 0.35,
+    maxAttempts: 8,
+  },
+
+  hud: {
+    /** Vzdialenosť HUD pred hráčom (nad koncom dráhy). */
+    distance: 7,
+    /** Výška písma v stupňoch; HUD sa podľa nej zväčší alebo zmenší s vzdialenosťou. */
+    fontDeg: 1.1,
+    /** Medzera medzi najvyššou prekážkou a spodnou hranou HUD. */
+    clearance: 0.25,
+  },
+
+  render: {
+    antialias: true,
+    foveation: 1,
+    targetFrameRate: 90,
+  },
+
+  audio: { volume: 0.6 },
+};
+
+export type Config = typeof CONFIG;
