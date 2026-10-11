@@ -12,7 +12,7 @@ import { createHeadSample } from './core/types';
 import { HitVignette } from './render/effects';
 import { createResources } from './render/materials';
 import { ObstacleViews } from './render/obstacleViews';
-import { createPlayArea } from './render/playArea';
+import { PlayAreaView } from './render/playArea';
 import { createRenderer } from './render/renderer';
 import { applyPlayFrame, createScene, type SceneRig } from './render/scene';
 import { UiManager } from './ui/panels';
@@ -27,6 +27,7 @@ export class App {
   readonly game: Game;
   readonly ui: UiManager;
   readonly obstacles: ObstacleViews;
+  readonly playArea = new PlayAreaView();
   readonly vignette = new HitVignette();
   readonly sfx = new Sfx(CONFIG.audio.volume);
   readonly head = createHeadSample();
@@ -44,7 +45,7 @@ export class App {
     this.renderer = createRenderer(container);
     this.rig = createScene();
     this.game = new Game({ storage, seed: Date.now() & 0x7fffffff });
-    this.rig.playRoot.add(createPlayArea());
+    this.rig.playRoot.add(this.playArea.root);
     this.obstacles = new ObstacleViews(createResources(), CONFIG);
     this.rig.playRoot.add(this.obstacles.root);
     this.rig.scene.add(this.vignette.mesh);
@@ -98,6 +99,7 @@ export class App {
 
     const game = this.game;
     applyPlayFrame(this.rig.playRoot, game.playFrame);
+    this.playArea.update(dt, game.state === 'PLAYING');
     this.obstacles.sync(game.sim, game.alpha, dt);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);

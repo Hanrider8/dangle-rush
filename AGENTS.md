@@ -64,7 +64,7 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty)
 src/xr/         session (immersive-ar, foveation, 90 Hz), póza hlavy z XRFrame, strata trackingu, ignorovanie vstupov
-src/render/     scéna, plocha a dráha, meshe prekážok (pooly), kurzor (shader), vinieta
+src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
 src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts
@@ -87,7 +87,7 @@ Kľúčové invarianty:
   - Pauza má `requireEntry`,
   - rozostupy tlačidiel sú aspoň 2 × hysteréza (test).
 - **Vzory na zemi** (slalom, hviezdy, široké miesanie): prvky sú za čelom prekážky (`elemDz ≤ 0`).
-  Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky za koncom dráhy render skryje.
+  Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
 - **Pohyblivá hokejka** závisí len od `z` (`pokeCheckCenter`), takže ju pauza zmrazí. Presun skončí `settleTime`
   pred príchodom k puku.
 

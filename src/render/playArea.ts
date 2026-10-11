@@ -1,5 +1,7 @@
 /**
- * Plocha pre puk a slabé čiary dráhy na reálnej podlahe.
+ * Plocha pre puk na reálnej podlahe (obdĺžnik so stredovým krúžkom). Je vidieť pred hrou, v pauze
+ * a na konci; počas hrania sa plynulo skryje, aby boli vidieť len prekážky. Čiary dráhy sú
+ * voliteľné (config playArea.showTrack), predvolene vypnuté.
  * Statické čiary sú zlúčené do jedného meshu, výplň plochy je druhý mesh.
  */
 import {
@@ -61,65 +63,84 @@ class FloorLines {
   }
 }
 
-export function createPlayArea(): Group {
-  const { width: w, depth: d, centerDistance } = CONFIG.playArea;
-  const near = -(centerDistance - d / 2);
-  const far = -(centerDistance + d / 2);
-  const end = -CONFIG.obstacles.spawnDistance;
-  const group = new Group();
-  group.name = 'playArea';
+const FILL_OPACITY = 0.16;
+/** Ako rýchlo sa plocha skryje alebo zobrazí (s). */
+const FADE_TIME = 0.5;
 
-  const fill = new Mesh(
-    new PlaneGeometry(w, d),
-    new MeshBasicMaterial({
+export class PlayAreaView {
+  readonly root = new Group();
+  private readonly fillMaterial: MeshBasicMaterial;
+  private readonly lineMaterial: MeshBasicMaterial;
+  private visibility = 1;
+
+  constructor() {
+    const { width: w, depth: d, centerDistance, showTrack } = CONFIG.playArea;
+    const near = -(centerDistance - d / 2);
+    const far = -(centerDistance + d / 2);
+    const end = -CONFIG.obstacles.spawnDistance;
+    this.root.name = 'playArea';
+
+    this.fillMaterial = new MeshBasicMaterial({
       color: 0x5cc8ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: FILL_OPACITY,
       depthWrite: false,
       side: DoubleSide,
-    }),
-  );
-  fill.rotation.x = -Math.PI / 2;
-  fill.position.set(0, FILL_Y, -centerDistance);
-  fill.renderOrder = 1;
-  group.add(fill);
+    });
+    const fill = new Mesh(new PlaneGeometry(w, d), this.fillMaterial);
+    fill.rotation.x = -Math.PI / 2;
+    fill.position.set(0, FILL_Y, -centerDistance);
+    fill.renderOrder = 1;
+    this.root.add(fill);
 
-  const lines = new FloorLines([0.75, 0.95, 1]);
-  // Obvod plochy.
-  lines.segment(-w / 2, near, w / 2, near, 0.02, 0.7);
-  lines.segment(-w / 2, far, w / 2, far, 0.02, 0.7);
-  lines.segment(-w / 2, near, -w / 2, far, 0.02, 0.7);
-  lines.segment(w / 2, near, w / 2, far, 0.02, 0.7);
-  // Stred plochy: sem patrí puk na začiatku.
-  lines.ring(0, -centerDistance, 0.07, 0.012, 0.8);
-  lines.segment(-0.03, -centerDistance, 0.03, -centerDistance, 0.008, 0.8);
-  lines.segment(0, -centerDistance - 0.03, 0, -centerDistance + 0.03, 0.008, 0.8);
-  // Dráha: okraje slabnú smerom do diaľky, v strede prerušovaná čiara.
-  lines.segment(-w / 2, far, -w / 2, end, 0.025, 0.45, 0.12);
-  lines.segment(w / 2, far, w / 2, end, 0.025, 0.45, 0.12);
-  for (let z = far - 0.25; z > end + 0.25; z -= 0.6) {
-    const t = (far - z) / (far - end);
-    lines.segment(0, z, 0, z - 0.3, 0.015, 0.3 * (1 - t) + 0.08);
-  }
-  // Čiara spawnu na konci dráhy.
-  lines.segment(-w / 2, end, w / 2, end, 0.02, 0.2);
+    const lines = new FloorLines([0.75, 0.95, 1]);
+    // Obvod plochy.
+    lines.segment(-w / 2, near, w / 2, near, 0.02, 0.7);
+    lines.segment(-w / 2, far, w / 2, far, 0.02, 0.7);
+    lines.segment(-w / 2, near, -w / 2, far, 0.02, 0.7);
+    lines.segment(w / 2, near, w / 2, far, 0.02, 0.7);
+    // Stred plochy: sem patrí puk na začiatku.
+    lines.ring(0, -centerDistance, 0.07, 0.012, 0.8);
+    lines.segment(-0.03, -centerDistance, 0.03, -centerDistance, 0.008, 0.8);
+    lines.segment(0, -centerDistance - 0.03, 0, -centerDistance + 0.03, 0.008, 0.8);
+    if (showTrack) {
+      // Dráha: okraje slabnú smerom do diaľky, v strede prerušovaná čiara, na konci čiara spawnu.
+      lines.segment(-w / 2, far, -w / 2, end, 0.025, 0.45, 0.12);
+      lines.segment(w / 2, far, w / 2, end, 0.025, 0.45, 0.12);
+      for (let z = far - 0.25; z > end + 0.25; z -= 0.6) {
+        const t = (far - z) / (far - end);
+        lines.segment(0, z, 0, z - 0.3, 0.015, 0.3 * (1 - t) + 0.08);
+      }
+      lines.segment(-w / 2, end, w / 2, end, 0.02, 0.2);
+    }
 
-  const lineMesh = new Mesh(
-    lines.build(),
-    new MeshBasicMaterial({
+    this.lineMaterial = new MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
       depthWrite: false,
       side: DoubleSide,
-    }),
-  );
-  lineMesh.renderOrder = 2;
-  group.add(lineMesh);
+    });
+    const lineMesh = new Mesh(lines.build(), this.lineMaterial);
+    lineMesh.renderOrder = 2;
+    this.root.add(lineMesh);
 
-  // Statické voči playRoot: lokálne matice netreba prepočítavať každý snímok.
-  group.traverse((o) => {
-    o.matrixAutoUpdate = false;
-    o.updateMatrix();
-  });
-  return group;
+    // Statické voči playRoot: lokálne matice netreba prepočítavať každý snímok.
+    this.root.traverse((o) => {
+      o.matrixAutoUpdate = false;
+      o.updateMatrix();
+    });
+  }
+
+  /** Počas hrania sa plocha plynulo skryje (ak config.playArea.showWhilePlaying nie je zapnuté). */
+  update(dt: number, playing: boolean): void {
+    const target = playing && !CONFIG.playArea.showWhilePlaying ? 0 : 1;
+    if (this.visibility === target) return;
+    const step = dt / FADE_TIME;
+    this.visibility = target > this.visibility
+      ? Math.min(target, this.visibility + step)
+      : Math.max(target, this.visibility - step);
+    this.fillMaterial.opacity = FILL_OPACITY * this.visibility;
+    this.lineMaterial.opacity = this.visibility;
+    this.root.visible = this.visibility > 0.001;
+  }
 }

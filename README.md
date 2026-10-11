@@ -154,6 +154,7 @@ Všetky laditeľné hodnoty sú v [`src/config.ts`](src/config.ts). Ako prvé sa
 | `fairness.maxPuckShiftSpeed` | 1,5 m/s | Ako rýchlo musíš najviac presúvať puk medzi prekážkami. |
 | `obstacles.sideBlock.innerX` | 0,1 m | Aký veľký úkrok je pri obrancovi potrebný. |
 | `playArea.width`, `.depth`, `.centerDistance` | 2,0 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk. |
+| `playArea.showWhilePlaying`, `.showTrack` | vyp, vyp | Plocha aj počas hrania; čiary dráhy k miestu spawnu. |
 | `difficulty.*` | — | Rýchlosti, intervaly, odomykanie typov a predvoľby obtiažnosti. |
 
 ## Štruktúra projektu
@@ -168,7 +169,7 @@ src/
 │                  obtiažnosť, nastavenia; deterministická, s fixným krokom 1/120 s
 ├── xr/            session (immersive-ar + local-floor), póza hlavy, strata trackingu,
 │                  ignorovanie vstupov z ovládačov a rúk
-├── render/        scéna, plocha a dráha, meshe prekážok, kurzor pohľadu, vinieta
+├── render/        scéna, plocha pre puk, meshe prekážok, kurzor pohľadu, vinieta
 ├── ui/            tlačidlá a panely v priestore (CanvasTexture), HUD, debug overlay, texty
 ├── audio/         zvuky syntetizované cez Web Audio API
 └── dev/           len pre vývoj: IWER a nástroje na skriptované testovanie
