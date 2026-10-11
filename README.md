@@ -38,6 +38,7 @@ npm run dev:usb
 Otvor http://localhost:5173. Na počítači sa automaticky zapne emulátor IWER (Meta Quest 3).
 
 - Klikni na **Spustiť**. Headset a ovládače ovládaš v paneli DevUI, kde je aj „play mode“ s myšou a klávesnicou.
+- `?demo=1` spustí ukážku: AR session aj autopilota, ktorý hrá sám a ukazuje virtuálny puk.
 - `?iwer=0` emulátor vypne.
 - `?debug=1` zapne debug overlay. Na počítači ho prepína aj kláves `` ` `` alebo F2.
 - V dev režime je v konzole objekt `window.__dr` na skriptované testovanie, napríklad `__dr.lookAt('start')`, `__dr.advance(1.5)`, `__dr.state` alebo `__dr.place('slalom', -3, 1)`.

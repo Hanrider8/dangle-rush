@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dangle-rush-usb",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:usb"],
+      "port": 5173
+    }
+  ]
+}

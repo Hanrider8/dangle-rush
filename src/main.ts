@@ -54,6 +54,21 @@ async function main(): Promise<void> {
   button.disabled = false;
   showStatus('Pripravené. Klikni ovládačom na Spustiť.');
 
+  // Len vývoj: `?demo=1` spustí AR session v emulátore a autopilota (ukážka bez ovládania).
+  if (import.meta.env.DEV && device && new URLSearchParams(window.location.search).get('demo') === '1') {
+    button.disabled = true;
+    app.start().then(
+      () => {
+        showStatus('');
+        (window as unknown as { __dr: { demo(on: boolean): boolean } }).__dr.demo(true);
+      },
+      () => {
+        button.disabled = false;
+        showStatus('Ukážku sa nepodarilo spustiť automaticky. Klikni na Spustiť.', true);
+      },
+    );
+  }
+
   button.addEventListener('click', () => {
     button.disabled = true;
     showStatus('Spúšťam AR…');

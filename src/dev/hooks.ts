@@ -18,9 +18,11 @@ import {
   makeWideDangle,
 } from '../core/obstacles';
 import type { ButtonId, ObstacleKind } from '../core/types';
+import { DemoPilot } from './demo';
 
 export function installHooks(app: App, device: XRDevice | null): void {
   const game = app.game;
+  const pilot = device ? new DemoPilot(app, device) : null;
   const eye = new Vector3();
   const target = new Vector3();
   const up = new Vector3(0, 1, 0);
@@ -118,6 +120,13 @@ export function installHooks(app: App, device: XRDevice | null): void {
       o.z = o.prevZ = z;
       sim.spawnPause = 1e9;
       return o.id;
+    },
+    /** Zapne alebo vypne autopilota (ukážka hry s virtuálnym pukom). */
+    demo(on = true): boolean {
+      if (!pilot) return false;
+      if (on) pilot.start();
+      else pilot.stop();
+      return pilot.active;
     },
     /** Odstráni všetky prekážky. */
     clearObstacles(): void {

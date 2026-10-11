@@ -4,4 +4,5 @@ dist/
 *.log
 .vite/
 coverage/
-.claude/
+.claude/*
+!.claude/launch.json
