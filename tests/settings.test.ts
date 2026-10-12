@@ -24,6 +24,7 @@ describe('nastavenia', () => {
       difficulty: 'medium',
       floorObstacles: true,
       countdown: 2,
+      frameRate: 120,
       eyeHeight: null,
       debug: false,
     });

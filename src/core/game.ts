@@ -29,6 +29,7 @@ import {
   MemoryStorage,
   cycleCountdown,
   cycleDwell,
+  cycleFrameRate,
   loadBest,
   loadSettings,
   nextDifficulty,
@@ -314,6 +315,9 @@ export class Game {
         break;
       case 'set.countdown':
         s.countdown = cycleCountdown(s.countdown, this.cfg);
+        break;
+      case 'set.fps':
+        s.frameRate = cycleFrameRate(s.frameRate, this.cfg);
         break;
       case 'set.debug':
         s.debug = !s.debug;

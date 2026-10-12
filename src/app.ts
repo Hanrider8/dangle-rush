@@ -18,6 +18,7 @@ import { PlayAreaView } from './render/playArea';
 import { createRenderer } from './render/renderer';
 import { applyPlayFrame, createScene, type SceneRig } from './render/scene';
 import { UiManager } from './ui/panels';
+import { FrameRateControl } from './xr/frameRate';
 import { readHeadPose } from './xr/headPose';
 import { InputGuard } from './xr/inputGuard';
 import { startArSession } from './xr/session';
@@ -39,6 +40,8 @@ export class App {
   puckSource: ((nowMs: number, out: PuckSample) => void) | null = null;
   readonly tracking = new TrackingMonitor(CONFIG.tracking.lostGrace);
   readonly inputGuard = new InputGuard();
+  /** Obnovovacia frekvencia XR podľa nastavení (žiada sa počas snímkov). */
+  readonly frameRate: FrameRateControl;
   session: XRSession | null = null;
   onSessionEnd: (() => void) | null = null;
   /** Len pre vývoj: simulácia straty trackingu (IWER ju nevie emulovať). */
@@ -56,6 +59,7 @@ export class App {
     this.renderer = createRenderer(container);
     this.rig = createScene();
     this.game = new Game({ storage, seed: Date.now() & 0x7fffffff });
+    this.frameRate = new FrameRateControl(this.game.settings.frameRate);
     this.rig.playRoot.add(this.playArea.root);
     const resources = createResources();
     this.obstacles = new ObstacleViews(resources, CONFIG);
@@ -96,6 +100,7 @@ export class App {
     }
     this.inputGuard.attach(session);
     this.session = session;
+    this.frameRate.reset(this.game.settings.frameRate);
     this.tracking.reset();
     this.lastTime = -1;
     this.game.beginSession();
@@ -108,6 +113,8 @@ export class App {
     const dt = this.lastTime < 0 ? 0 : (time - this.lastTime) / 1000;
     this.lastTime = time;
 
+    if (this.frameRate.preferred !== this.game.settings.frameRate) this.frameRate.reset(this.game.settings.frameRate);
+    this.frameRate.onFrame(this.session, time);
     readHeadPose(frame, this.renderer.xr.getReferenceSpace(), this.head);
     this.tick(dt);
     for (let i = 0; i < this.frameHooks.length; i++) this.frameHooks[i]!(time, dt);
@@ -119,7 +126,7 @@ export class App {
     this.feedback.update(dt, game.alpha, game.sim);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
-    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount);
+    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current);
     this.renderer.render(this.rig.scene, this.rig.camera);
   };
 

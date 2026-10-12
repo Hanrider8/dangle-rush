@@ -18,6 +18,8 @@ export interface Settings {
   difficulty: Difficulty;
   floorObstacles: boolean;
   countdown: number;
+  /** Obnovovacia frekvencia XR (Hz). */
+  frameRate: number;
   /** Kalibrovaná výška očí v stoji; null = ešte nekalibrované (spustí sa SETUP). */
   eyeHeight: number | null;
   debug: boolean;
@@ -54,6 +56,7 @@ export function defaultSettings(cfg: Config): Settings {
     difficulty: 'medium',
     floorObstacles: true,
     countdown: cfg.countdown.default,
+    frameRate: cfg.render.targetFrameRate,
     eyeHeight: null,
     debug: false,
   };
@@ -84,6 +87,7 @@ export function sanitizeSettings(raw: unknown, cfg: Config): Settings {
   if (typeof r.countdown === 'number' && Number.isFinite(r.countdown)) {
     s.countdown = Math.round(clamp(r.countdown, cfg.countdown.min, cfg.countdown.max));
   }
+  if (typeof r.frameRate === 'number' && cfg.render.frameRates.includes(r.frameRate)) s.frameRate = r.frameRate;
   if (
     typeof r.eyeHeight === 'number' &&
     r.eyeHeight >= cfg.head.minEyeHeight &&
@@ -146,6 +150,13 @@ export function cycleDwell(current: number, cfg: Config): number {
 export function cycleCountdown(current: number, cfg: Config): number {
   const next = Math.round(current) + 1;
   return next > cfg.countdown.max ? cfg.countdown.min : next;
+}
+
+/** Ďalšia obnovovacia frekvencia v cykle 72 → 90 → 120 → 72. */
+export function cycleFrameRate(current: number, cfg: Config): number {
+  const rates = cfg.render.frameRates;
+  const i = rates.indexOf(current);
+  return rates[(i + 1) % rates.length]!;
 }
 
 export function nextDifficulty(current: Difficulty): Difficulty {

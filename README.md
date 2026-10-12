@@ -121,7 +121,7 @@ Build používa relatívne cesty (`base: './'`), preto funguje v ľubovoľnom po
 Ďalšie ovládanie:
 
 - **Vycentrovať** dá 3 sekundy na otočenie sa smerom hry a potom presunie plochu.
-- **Nastavenia** sa ukladajú v prehliadači: čas pohľadu, strana a poloha pauzy (bok alebo hore), obtiažnosť, prekážky na zemi, dĺžka odpočtu, nová kalibrácia a debug. So sledovaním puku pribudne **Kalibrácia puku**.
+- **Nastavenia** sa ukladajú v prehliadači: čas pohľadu, strana a poloha pauzy (bok alebo hore), obtiažnosť, prekážky na zemi, dĺžka odpočtu, nová kalibrácia, debug a **Snímky** (obnovovacia frekvencia 72 / 90 / 120 Hz, predvolene 120 Hz; debug overlay ukazuje skutočnú). So sledovaním puku pribudne **Kalibrácia puku**.
 - Hra sa sama pozastaví, keď otvoríš Quest menu, keď sa stratí tracking alebo keď sa zmení priestor.
 
 ## Sledovanie puku kamerou

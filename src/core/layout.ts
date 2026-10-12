@@ -217,14 +217,15 @@ export function computeLayout(
         ['set.pausePos', 'set.pauseSide', 'set.countdown'],
         ['set.calibrate', 'set.back', 'set.debug'],
       ];
-      // S kamerou na puk pribudne štvrtý rad s kalibráciou puku (pod Späť).
-      if (ctx.puckTracking) grid.push([null, 'set.puck', null]);
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < grid[r]!.length; c++) {
           const id = grid[r]![c];
           if (id) buttons.push(button(id, a, (c - 1) * col, (1 - r) * rowH, S));
         }
       }
+      // Štvrtý rad: obnovovacia frekvencia a s kamerou na puk aj kalibrácia puku (vycentrované).
+      const row4: ButtonId[] = ctx.puckTracking ? ['set.fps', 'set.puck'] : ['set.fps'];
+      row4.forEach((id, i) => buttons.push(button(id, a, (i - (row4.length - 1) / 2) * col, -2 * rowH, S)));
       break;
     }
     case 'puck': {

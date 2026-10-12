@@ -74,7 +74,8 @@ src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/t
 src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
-src/xr/         session (immersive-ar, foveation, 90 Hz), póza hlavy z XRFrame, strata trackingu, ignorovanie vstupov
+src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení), póza hlavy z XRFrame,
+                strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
                 feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), hokejisti z primitív
                 (materials.ts, farby vo vertexoch, jeden draw call)
@@ -92,6 +93,9 @@ Kľúčové invarianty:
 - **Pauza = simulácia sa nekrokuje.** Pokračovanie musí byť presne deterministické. Test
   `pauseResume.test.ts` porovnáva beh s pauzou a bez nej. V core nepoužívaj `Math.random`, `Date` ani časy snímok,
   iba seedovaný `Rng`.
+- **Obnovovacia frekvencia:** Quest spúšťa WebXR na 72 Hz. `updateTargetFrameRate` sa volá až počas XR snímkov
+  (`FrameRateControl.onFrame`), kým `session.frameRate` nehlási cieľ; volanie hneď po štarte session sa na Queste
+  nemusí nikdy dokončiť. Predvolené je 120 Hz (nastavenie „Snímky“), použije sa najbližšia podporovaná.
 - **Hlava** sa číta priamo z `XRFrame.getViewerPose`, nie z kamery three.js (tá je o snímok pozadu).
   `renderer.setAnimationLoop` sa musí nastaviť **pred** `setSession`, inak beží slučka dvakrát za snímok.
 - **Bez alokácií v hernej slučke:** pooly, predalokované vektory a CanvasTexture sa prekresľuje len pri zmene.

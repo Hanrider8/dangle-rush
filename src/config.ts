@@ -226,7 +226,9 @@ export const CONFIG = {
   render: {
     antialias: true,
     foveation: 1,
-    targetFrameRate: 90,
+    /** Obnovovacia frekvencia (nastavenie „Snímky“): predvolená a možnosti; použije sa najbližšia podporovaná. */
+    targetFrameRate: 120,
+    frameRates: [72, 90, 120],
   },
 
   /**

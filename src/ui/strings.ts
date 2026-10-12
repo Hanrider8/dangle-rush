@@ -63,6 +63,7 @@ export const STRINGS = {
     calibrate: 'Nová kalibrácia',
     calibrateValue: 'výšky hlavy',
     puck: 'Kalibrácia puku',
+    fps: 'Snímky',
     puckValue: 'kamera',
     debug: 'Debug',
     on: 'zap',

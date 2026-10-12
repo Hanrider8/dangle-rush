@@ -15,6 +15,8 @@ export interface ReportContext {
   xrSessions: number;
   restarts: number;
   xr: { all: FrameStats; playing: FrameStats; noCamera: FrameStats; targetHz: number };
+  /** Stav obnovovacej frekvencie (FrameRateControl.describe). */
+  frameRate: string;
   version: string;
 }
 
@@ -91,6 +93,7 @@ export function buildReport(c: ReportContext): string {
   lines.push(
     `Snímky: ${s.frames} (v AR ${s.framesInXr}) · ${s.fps.toFixed(1)} fps · spracovanie ${s.procMs.toFixed(1)} ms (${s.method || '–'}) · AR session ${c.xrSessions} · reštarty ${c.restarts}`,
   );
+  lines.push(`Obnovovacia frekvencia: ${c.frameRate}`);
   lines.push(`XR snímky (cieľ ${c.xr.targetHz || '?'} Hz): ${c.xr.all.describe()}`);
   lines.push(`  počas hry: ${c.xr.playing.describe()}`);
   lines.push(`  bez kamery: ${c.xr.noCamera.describe()}`);

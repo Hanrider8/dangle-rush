@@ -37,7 +37,8 @@ export class DebugOverlay {
     this.panel.mesh.position.set(hudX - hudWidth / 2 - 0.15 - w / 2, hudY, -this.cfg.hud.distance);
   }
 
-  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number): void {
+  /** xrHz = obnovovacia frekvencia, ktorú hlási XR session (0 = nevedno). */
+  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number): void {
     const show = game.settings.debug;
     this.panel.mesh.visible = show;
     this.frames++;
@@ -54,7 +55,7 @@ export class DebugOverlay {
     const sim = game.sim;
     const gaze = game.gaze;
     const lines = [
-      `FPS ${Math.round(this.fps)} · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
+      `FPS ${Math.round(this.fps)} / ${xrHz ? Math.round(xrHz) : '?'} Hz · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
       `hlava y ${num(game.head.y, 2)} m · kalibrácia ${num(game.eyeHeight, 2)} m`,
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,

@@ -87,6 +87,7 @@ export type ButtonId =
   | 'set.back'
   | 'set.debug'
   | 'set.puck'
+  | 'set.fps'
   | 'puck.done';
 
 /** puckInfo: miesto pre panel kamery pri kalibrácii puku (kreslí ho modul kamery). */

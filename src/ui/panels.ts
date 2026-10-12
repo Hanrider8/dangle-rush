@@ -57,6 +57,8 @@ function buttonLabel(id: ButtonId, s: Settings): [string, string?] {
       return [t.debug, s.debug ? t.on : t.off];
     case 'set.puck':
       return [t.puck, t.puckValue];
+    case 'set.fps':
+      return [t.fps, `${s.frameRate} Hz`];
     case 'puck.done':
       return [STRINGS.buttons.done];
   }
@@ -123,8 +125,8 @@ export class UiManager {
     this.updateRecenter(game, headWorld);
   }
 
-  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number): void {
-    this.debug.update(dt, game, drawCalls, ignoredInputs);
+  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number): void {
+    this.debug.update(dt, game, drawCalls, ignoredInputs, xrHz);
   }
 
   private applyLayout(game: Game): void {

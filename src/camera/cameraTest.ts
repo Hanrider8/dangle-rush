@@ -202,7 +202,16 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   });
 
   const reportText = () =>
-    buildReport({ source, tracker, requested, xrSessions, restarts, xr, version: `build ${__BUILD_TIME__}` });
+    buildReport({
+      source,
+      tracker,
+      requested,
+      xrSessions,
+      restarts,
+      xr,
+      frameRate: app.frameRate.describe(),
+      version: `build ${__BUILD_TIME__}`,
+    });
 
   copyBtn.addEventListener('click', () => {
     const text = reportText();

@@ -35,7 +35,7 @@ export async function startArSession(
   renderer.xr.setReferenceSpaceType('local-floor');
   await renderer.xr.setSession(session);
   renderer.xr.setFoveation(CONFIG.render.foveation);
-  requestFrameRate(session, CONFIG.render.targetFrameRate);
+  // Obnovovaciu frekvenciu nastavuje FrameRateControl až počas snímkov (xr/frameRate.ts).
 
   session.addEventListener('visibilitychange', () => {
     handlers.onVisibilityChange(session.visibilityState);
@@ -43,15 +43,4 @@ export async function startArSession(
   session.addEventListener('end', () => handlers.onEnd(), { once: true });
   renderer.xr.getReferenceSpace()?.addEventListener('reset', () => handlers.onReferenceReset());
   return session;
-}
-
-function requestFrameRate(session: XRSession, rate: number): void {
-  const rates = session.supportedFrameRates;
-  if (!rates || typeof session.updateTargetFrameRate !== 'function') return;
-  for (let i = 0; i < rates.length; i++) {
-    if (rates[i] === rate) {
-      session.updateTargetFrameRate(rate).catch(() => undefined);
-      return;
-    }
-  }
 }
