@@ -135,7 +135,8 @@ Hra puk zatiaľ nevidí. Test `?cam=1` skúša, či ho zvládne nájsť kamera h
 3. Klikni na **Spustiť**. V AR polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj okolo neho
    (vľavo, vpravo, bližšie, ďalej). Kalibrácia kamery sa urobí sama a uloží sa.
 4. Zelený krúžok na podlahe ukazuje, kde je puk podľa kamery; modrý obrys ukazuje, čo kamera vidí. Panel vľavo
-   vpredu má náhľad kamery a čísla (fps, úspešnosť hľadania, poloha, kalibrácia).
+   vpredu má náhľad kamery a čísla (fps, úspešnosť hľadania, poloha, kalibrácia, plynulosť hry). Počas hrania je
+   panel skrytý, aby hru nespomaľoval.
 5. Po návrate z AR je dole na stránke **Správa z testu kamery** na skopírovanie alebo odfotenie.
 
 ## Bezpečnosť

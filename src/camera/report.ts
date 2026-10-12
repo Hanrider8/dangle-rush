@@ -4,6 +4,7 @@
  * Hráč ju skopíruje alebo odfotí a pošle ďalej.
  */
 import type { CamParams } from '../tracking/cameraModel';
+import type { FrameStats } from './frameStats';
 import type { CameraSource } from './source';
 import type { PuckTracker } from './tracker';
 
@@ -13,6 +14,7 @@ export interface ReportContext {
   requested: { width: number; height: number; frameRate: number };
   xrSessions: number;
   restarts: number;
+  xr: { all: FrameStats; playing: FrameStats; noCamera: FrameStats; targetHz: number };
   version: string;
 }
 
@@ -87,8 +89,11 @@ export function buildReport(c: ReportContext): string {
   }
   lines.push('');
   lines.push(
-    `Snímky: ${s.frames} (v AR ${s.framesInXr}) · ${s.fps.toFixed(1)} fps · spracovanie ${s.procMs.toFixed(1)} ms · AR session ${c.xrSessions} · reštarty ${c.restarts}`,
+    `Snímky: ${s.frames} (v AR ${s.framesInXr}) · ${s.fps.toFixed(1)} fps · spracovanie ${s.procMs.toFixed(1)} ms (${s.method || '–'}) · AR session ${c.xrSessions} · reštarty ${c.restarts}`,
   );
+  lines.push(`XR snímky (cieľ ${c.xr.targetHz || '?'} Hz): ${c.xr.all.describe()}`);
+  lines.push(`  počas hry: ${c.xr.playing.describe()}`);
+  lines.push(`  bez kamery: ${c.xr.noCamera.describe()}`);
   const sync = tracker.sync;
   lines.push(
     `Časové značky: ${sync.usingTimestamps ? 'áno' : 'nie (čas príchodu)'} · posun ${Number.isFinite(sync.offset) ? sync.offset.toFixed(1) : '–'} ms · jitter doručenia ${sync.meanExtraDelay.toFixed(1)} ms · resety ${sync.resets}`,

@@ -12,14 +12,17 @@ const H = 960;
 const PLANE = C.targets.green.centerHeight;
 const DEG = Math.PI / 180;
 
-/** Skutočná kamera v teste: iná ohnisková vzdialenosť, posunutý stred, sklopená nadol, oneskorenie 45 ms. */
+/**
+ * Skutočná kamera v teste: iná ohnisková vzdialenosť a sklon ako odhad z configu, posunutý stred,
+ * oneskorenie 45 ms.
+ */
 const TRUE: CamParams = {
   width: W,
   height: H,
-  f: 845,
+  f: 800,
   cx: 652,
   cy: 468,
-  rx: -0.11,
+  rx: -0.05,
   ry: 0.035,
   rz: 0.015,
   tx: 0.034,
@@ -28,7 +31,7 @@ const TRUE: CamParams = {
   latencyMs: 45,
 };
 
-const GUESS = guessParams(W, H, C.guess.hfovDeg, C.guess.offset, 1, C.guess.latencyMs);
+const GUESS = guessParams(W, H, C.guess.hfovDeg, C.guess.offset, 1, C.guess.latencyMs, C.guess.pitchDeg);
 
 interface Scenario {
   poses: PoseHistory;

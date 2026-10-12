@@ -68,6 +68,7 @@ src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/t
   cameraModel.ts dierková komora pripevnená k hlave: pixel ↔ lúč, priesečník s podlahou, záber na podlahe
   calibration.ts samokalibrácia z nehybného puku (Levenberg–Marquardt: f, stred, natočenie, poloha, oneskorenie)
   poseHistory.ts história pózy hlavy (póza v čase zachytenia snímky), timeSync.ts časové značky kamery → čas
+  yuv.ts        zmenšenie snímky I420/NV12 priamo do malého RGBA (Quest dáva I420; canvas trval ~20 ms)
 src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
@@ -103,6 +104,9 @@ Kľúčové invarianty:
   `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
   takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
   (`TimeSync` + oneskorenie z kalibrácie). Kalibrácia sa ukladá do localStorage podľa názvu kamery a rozlíšenia.
+  Namerané na Queste 3 (Quest Browser 150): kamery `camera 1/2, facing back` (ľavá/pravá), 1280 × 1280 @ 30 fps,
+  I420, f ≈ 862 px, sklon −10,8°, oneskorenie ≈ 44 ms (predvolený odhad v `config.camera.guess`). Panel testu sa
+  počas hry skrýva (nahrávanie veľkej CanvasTexture trhalo hru); správa meria plynulosť XR snímok (`FrameStats`).
 
 ## Typické úlohy
 

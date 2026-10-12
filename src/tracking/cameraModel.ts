@@ -41,7 +41,7 @@ export interface Pixel {
   v: number;
 }
 
-/** Odhad kamery pred kalibráciou: stred obrazu v strede, kamera rovnobežne s pohľadom. */
+/** Odhad kamery pred kalibráciou: stred obrazu v strede, kamera sklopená o pitchDeg voči pohľadu. */
 export function guessParams(
   width: number,
   height: number,
@@ -49,6 +49,7 @@ export function guessParams(
   offset: { x: number; y: number; z: number },
   side: -1 | 0 | 1,
   latencyMs: number,
+  pitchDeg = 0,
 ): CamParams {
   return {
     width,
@@ -56,7 +57,7 @@ export function guessParams(
     f: width / 2 / Math.tan((hfovDeg * Math.PI) / 360),
     cx: width / 2,
     cy: height / 2,
-    rx: 0,
+    rx: (pitchDeg * Math.PI) / 180,
     ry: 0,
     rz: 0,
     tx: side * Math.abs(offset.x),

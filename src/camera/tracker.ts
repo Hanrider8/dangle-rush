@@ -61,6 +61,8 @@ export class PuckTracker {
     fps: 0,
     foundRate: 0,
     procMs: 0,
+    /** Ako worker zmenšil snímku: priamo z YUV alebo cez canvas. */
+    method: '' as '' | 'yuv' | 'canvas',
     lastFrameAt: -Infinity,
     srcWidth: 0,
     srcHeight: 0,
@@ -104,7 +106,9 @@ export class PuckTracker {
     private readonly storage: KeyValueStorage,
   ) {
     const c = cfg.camera;
-    this.model = new CameraModel(guessParams(c.width, c.height, c.guess.hfovDeg, c.guess.offset, 0, c.guess.latencyMs));
+    this.model = new CameraModel(
+      guessParams(c.width, c.height, c.guess.hfovDeg, c.guess.offset, 0, c.guess.latencyMs, c.guess.pitchDeg),
+    );
     this.calibWorker = new Worker(new URL('./calibWorker.ts', import.meta.url), { type: 'module' });
     this.calibWorker.onmessage = (e: MessageEvent<CalibResponse>) => this.onCalibResult(e.data);
     this.calibWorker.onerror = (e) => {
@@ -137,7 +141,9 @@ export class PuckTracker {
     } else {
       const c = this.cfg.camera;
       const side = cameraSideFromLabel(label);
-      this.model.setParams(guessParams(width, height, c.guess.hfovDeg, c.guess.offset, side, c.guess.latencyMs));
+      this.model.setParams(
+        guessParams(width, height, c.guess.hfovDeg, c.guess.offset, side, c.guess.latencyMs, c.guess.pitchDeg),
+      );
       this.paramsSource = 'odhad';
       this.calib.status = 'nekalibrované';
     }
@@ -172,6 +178,7 @@ export class PuckTracker {
     if (inXr) s.framesInXr++;
     s.lastFrameAt = now;
     s.procMs = s.frames === 1 ? msg.procMs : s.procMs * 0.9 + msg.procMs * 0.1;
+    s.method = msg.method;
     if (this.windowStart < 0) this.windowStart = now;
     this.windowFrames++;
     if (msg.found) this.windowFound++;

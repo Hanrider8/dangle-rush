@@ -17,6 +17,7 @@ import {
   type Scene,
 } from 'three';
 import type { Config } from '../config';
+import type { FrameStats } from './frameStats';
 import type { Game } from '../core/game';
 import type { HeadSample } from '../core/types';
 import { COLORS, CanvasPanel, FONT_FAMILY, roundedRect } from '../ui/canvasPanel';
@@ -84,7 +85,15 @@ export class TrackerView {
     this.dirty = true;
   }
 
-  update(dt: number, nowMs: number, tracker: PuckTracker, source: CameraSource, game: Game, head: HeadSample): void {
+  update(
+    dt: number,
+    nowMs: number,
+    tracker: PuckTracker,
+    source: CameraSource,
+    game: Game,
+    head: HeadSample,
+    xr: FrameStats,
+  ): void {
     const running = source.stream !== null;
     const p = tracker.puck;
     const age = nowMs - p.received;
@@ -109,9 +118,10 @@ export class TrackerView {
       this.footPos.needsUpdate = true;
     }
 
+    // Počas hry je panel skrytý a neprekresľuje sa: nahrávanie textúry 640 × 700 do GPU by hru trhalo.
     const mesh = this.panel.mesh;
-    mesh.visible = running;
-    if (!running) return;
+    mesh.visible = running && game.state !== 'PLAYING' && game.state !== 'COUNTDOWN';
+    if (!mesh.visible) return;
     mesh.position.set(PANEL_POS.x, game.eyeHeight + PANEL_POS.dy, PANEL_POS.z);
     mesh.rotation.set(0, Math.atan2(-PANEL_POS.x, -PANEL_POS.z), 0);
     mesh.scale.set(PANEL_WIDTH, (PANEL_WIDTH * this.panel.height) / this.panel.width, 1);
@@ -119,10 +129,10 @@ export class TrackerView {
     if (this.textTimer < REDRAW_INTERVAL || (!this.dirty && this.textTimer < 2 * REDRAW_INTERVAL)) return;
     this.textTimer = 0;
     this.dirty = false;
-    this.redraw(this.lines(tracker, source, nowMs));
+    this.redraw(this.lines(tracker, nowMs, xr));
   }
 
-  private lines(tracker: PuckTracker, source: CameraSource, nowMs: number): [string, string][] {
+  private lines(tracker: PuckTracker, nowMs: number, xr: FrameStats): [string, string][] {
     const s = tracker.stats;
     const p = tracker.puck;
     const fresh = p.valid && nowMs - p.received < this.cfg.camera.ring.hideMs;
@@ -130,7 +140,7 @@ export class TrackerView {
     const rows: [string, string][] = [];
     rows.push([
       live
-        ? `Kamera ${s.srcWidth}×${s.srcHeight} · ${num(s.fps)} fps · ${num(s.procMs, 1)} ms`
+        ? `Kamera ${s.srcWidth}×${s.srcHeight} · ${num(s.fps)} fps · ${num(s.procMs, 1)} ms ${s.method}`
         : 'Kamera: snímky neprichádzajú',
       live ? COLORS.text : COLORS.warn,
     ]);
@@ -156,7 +166,10 @@ export class TrackerView {
         COLORS.muted,
       ]);
     } else {
-      rows.push([`Snímky v AR ${s.framesInXr} · ${source.pipeline || '–'}`, COLORS.muted]);
+      rows.push([
+        `Hra ${num(xr.fps)} fps · trhnutia ${num(xr.hitchRate * 100, 1)} % · najdlhšia ${num(xr.worstMs)} ms`,
+        xr.hitchRate > 0.02 ? COLORS.warn : COLORS.muted,
+      ]);
     }
     return rows;
   }

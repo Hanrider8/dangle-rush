@@ -215,10 +215,13 @@ export const CONFIG = {
    * Pixely sú v rozlíšení kamery (napr. 1280 × 960), časy v milisekundách.
    */
   camera: {
-    /** Požadované rozlíšenie a snímková frekvencia (prehliadač môže dať iné). */
+    /**
+     * Požadované rozlíšenie a snímková frekvencia. Quest 3 dáva 1280 × 1280 (väčší zvislý záber ako
+     * 1280 × 960, puk ostane v obraze aj pri hlave hore) a najviac 30 fps.
+     */
     width: 1280,
-    height: 960,
-    frameRate: 60,
+    height: 1280,
+    frameRate: 30,
     /** Šírka zmenšeného obrazu na hľadanie puku (výška podľa pomeru strán kamery). */
     procWidth: 320,
     /** Ako často worker pošle náhľad kamery (ms). */
@@ -241,12 +244,17 @@ export const CONFIG = {
       /** Najväčší pomer strán obdĺžnika okolo škvrny (puk rozmazaný pohybom je pretiahnutý). */
       maxAspect: 3,
     },
-    /** Odhad kamery, kým neprebehne kalibrácia. */
+    /**
+     * Odhad kamery, kým neprebehne kalibrácia: namerané samokalibráciou na Queste 3 (pravá kamera,
+     * 1280 × 1280, chyba 0,05°): f 862 px, kamera sklopená o 10,8° nadol, oneskorenie 44 ms.
+     */
     guess: {
-      hfovDeg: 80,
-      latencyMs: 60,
+      hfovDeg: 73.2,
+      /** Sklon kamery voči pohľadu (záporný = nadol). */
+      pitchDeg: -10.8,
+      latencyMs: 44,
       /** Poloha pravej kamery voči stredu medzi očami (m): +x doprava, +y hore, −z dopredu; ľavá má −x. */
-      offset: { x: 0.032, y: -0.01, z: -0.08 },
+      offset: { x: 0.034, y: -0.024, z: -0.075 },
     },
     /** Samokalibrácia: puk leží na zemi, hráč sa naň pozerá a krúži hlavou. */
     calibration: {

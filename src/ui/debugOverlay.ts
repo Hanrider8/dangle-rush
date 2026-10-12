@@ -1,6 +1,6 @@
 /**
- * Prepínateľný debug overlay vedľa HUD: FPS, stav automatu, výška hlavy, uhol pohľadu
- * k najbližšiemu tlačidlu, draw cally a počet ignorovaných vstupov. Obnovuje sa 4× za sekundu.
+ * Prepínateľný debug overlay vedľa HUD: FPS, najdlhšia snímka (trhanie), stav automatu, výška hlavy,
+ * uhol pohľadu k najbližšiemu tlačidlu, draw cally a počet ignorovaných vstupov. Obnovuje sa 4× za sekundu.
  */
 import type { Config } from '../config';
 import type { Game } from '../core/game';
@@ -20,6 +20,8 @@ export class DebugOverlay {
   private time = 0;
   private frames = 0;
   private fps = 0;
+  private maxDt = 0;
+  private shownMaxMs = 0;
 
   constructor(private readonly cfg: Config) {
     const d = cfg.hud.distance;
@@ -40,16 +42,19 @@ export class DebugOverlay {
     this.panel.mesh.visible = show;
     this.frames++;
     this.time += dt;
+    if (dt > this.maxDt) this.maxDt = dt;
     if (this.time < REFRESH) return;
     this.fps = this.frames / this.time;
+    this.shownMaxMs = this.maxDt * 1000;
     this.frames = 0;
     this.time = 0;
+    this.maxDt = 0;
     if (!show) return;
 
     const sim = game.sim;
     const gaze = game.gaze;
     const lines = [
-      `FPS ${Math.round(this.fps)} · ${game.state}/${game.sub}`,
+      `FPS ${Math.round(this.fps)} · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
       `hlava y ${num(game.head.y, 2)} m · kalibrácia ${num(game.eyeHeight, 2)} m`,
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,

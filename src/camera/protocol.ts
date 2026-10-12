@@ -35,8 +35,9 @@ export interface DetectionMessage {
   fill: number;
   candidates: number;
   colorPixels: number;
-  /** Trvanie spracovania vo workeri (ms). */
+  /** Trvanie spracovania vo workeri (ms) a cesta: priamo z YUV alebo cez canvas. */
   procMs: number;
+  method: 'yuv' | 'canvas';
 }
 
 /** Vlastnosti prvej snímky (do správy pre vývoj). */
