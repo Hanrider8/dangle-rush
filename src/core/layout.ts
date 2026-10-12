@@ -23,7 +23,8 @@ export type LayoutId =
   | 'paused'
   | 'gameOver'
   | 'settings'
-  | 'recenter';
+  | 'recenter'
+  | 'puck';
 
 /** Rovina panelu: stred, osi a vzdialenosť od nominálnej hlavy. */
 export interface Anchor extends Rect3 {
@@ -50,6 +51,8 @@ export interface LayoutContext {
   setupHeight: number;
   pauseSide: PauseSide;
   pausePosition: PausePosition;
+  /** Puk sleduje kamera: v nastaveniach je tlačidlo Kalibrácia puku. */
+  puckTracking?: boolean;
 }
 
 export type SettingsAnchor = 'front' | 'pause';
@@ -209,16 +212,27 @@ export function computeLayout(
       const col = S.w + gap;
       const rowH = S.h + gap;
       texts.push(text('settingsTitle', a, 0, rowH + S.h / 2 + 3, 30, 4));
-      const grid: ButtonId[][] = [
+      const grid: (ButtonId | null)[][] = [
         ['set.dwell', 'set.difficulty', 'set.floor'],
         ['set.pausePos', 'set.pauseSide', 'set.countdown'],
         ['set.calibrate', 'set.back', 'set.debug'],
       ];
+      // S kamerou na puk pribudne štvrtý rad s kalibráciou puku (pod Späť).
+      if (ctx.puckTracking) grid.push([null, 'set.puck', null]);
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < grid[r]!.length; c++) {
-          buttons.push(button(grid[r]![c]!, a, (c - 1) * col, (1 - r) * rowH, S));
+          const id = grid[r]![c];
+          if (id) buttons.push(button(id, a, (c - 1) * col, (1 - r) * rowH, S));
         }
       }
+      break;
+    }
+    case 'puck': {
+      // Panel kamery (kreslí ho modul kamery) a nad ním Hotovo: pri pohľade na puk dole sa nespustí.
+      const a = settingsAnchor(settingsAt, ctx, cfg);
+      const panel = { w: 22, h: 24, el: -2 };
+      texts.push(text('puckInfo', a, 0, panel.el, panel.w, panel.h));
+      buttons.push(button('puck.done', a, 0, panel.el + panel.h / 2 + gap + B.h / 2, B));
       break;
     }
     case 'recenter':

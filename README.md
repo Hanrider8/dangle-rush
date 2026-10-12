@@ -4,14 +4,14 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 
 Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
-- **Prekážky na zemi** ukazujú, kam s pukom. Zelená plocha so šípkami vždy označuje, kadiaľ má ísť puk. Hra puk nevidí, prekážky len počíta (počítadlo „Puk“ v HUD):
+- **Prekážky na zemi** ukazujú, kam s pukom. Zelená plocha so šípkami vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
   - brána z dvoch kužeľov,
   - nízka hokejka na zemi z jednej strany,
   - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
-  - hviezdy so svetelným stĺpom, cez ktoré prevedieš puk,
+  - hviezdy, cez ktoré prevedieš puk,
   - široké miesanie: brána úplne na jednej strane a hneď nato na druhej,
   - pohyblivá hokejka obrancu (poke check), ktorá sa po zemi presunie na druhú stranu, a puk musíš stiahnuť do medzery, ktorá sa otvorí.
-- **Obrancovia** (žlté a oranžové siluety) sa vyhodnocujú podľa polohy hlavy:
+- **Obrancovia** (hokejisti v červenom a modrom drese) sa vyhodnocujú podľa polohy hlavy; obídený obranca sa zosunie do podlahy:
   - jeden obranca: úkrok alebo náklon na druhú stranu,
   - dvaja obrancovia: hlavou cez medzeru.
 - Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
@@ -121,23 +121,23 @@ Build používa relatívne cesty (`base: './'`), preto funguje v ľubovoľnom po
 Ďalšie ovládanie:
 
 - **Vycentrovať** dá 3 sekundy na otočenie sa smerom hry a potom presunie plochu.
-- **Nastavenia** sa ukladajú v prehliadači: čas pohľadu, strana a poloha pauzy (bok alebo hore), obtiažnosť, prekážky na zemi, dĺžka odpočtu, nová kalibrácia a debug.
+- **Nastavenia** sa ukladajú v prehliadači: čas pohľadu, strana a poloha pauzy (bok alebo hore), obtiažnosť, prekážky na zemi, dĺžka odpočtu, nová kalibrácia a debug. So sledovaním puku pribudne **Kalibrácia puku**.
 - Hra sa sama pozastaví, keď otvoríš Quest menu, keď sa stratí tracking alebo keď sa zmení priestor.
 
-## Test kamery: sledovanie puku (experiment)
+## Sledovanie puku kamerou
 
-Hra puk zatiaľ nevidí. Test `?cam=1` skúša, či ho zvládne nájsť kamera headsetu:
-**https://hanrider8.github.io/dangle-rush/?cam=1&debug=1**
+Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku a hra podľa toho posudzuje prekážky na zemi:
+**https://hanrider8.github.io/dangle-rush/?cam=1**
 
 1. Na úvodnej stránke vyber, čo sledovať (najlepšie **zelený biscuit**: na svetlom dreve je zelená výrazná, oranžová
    má podobný odtieň ako drevo), a klikni na **Povoliť kameru**. Povolenie „Kamery headsetu“ sa dá dať len tu, nie v AR.
 2. V náhľade má byť puk fialový a v žltom krúžku.
-3. Klikni na **Spustiť**. V AR polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj okolo neho
-   (vľavo, vpravo, bližšie, ďalej). Kalibrácia kamery sa urobí sama a uloží sa.
-4. Zelený krúžok na podlahe ukazuje, kde je puk podľa kamery; modrý obrys ukazuje, čo kamera vidí. Panel vľavo
-   vpredu má náhľad kamery a čísla (fps, úspešnosť hľadania, poloha, kalibrácia, plynulosť hry). Počas hrania je
-   panel skrytý, aby hru nespomaľoval.
-5. Po návrate z AR je dole na stránke **Správa z testu kamery** na skopírovanie alebo odfotenie.
+3. Klikni na **Spustiť**. Okolo puku na podlahe jemne svieti žiara. Ak nesedí na puku, otvor **Nastavenia →
+   Kalibrácia puku**: polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj okolo neho (vľavo, vpravo,
+   bližšie, ďalej). Panel ukáže náhľad kamery a stav, modrý obrys to, čo kamera vidí. Kalibrácia sa uloží.
+4. Pri hre: prvok, ktorým puk prešiel (brána, hviezda, správna strana kužeľa, medzera pri tyči), zozelenie, zmizne
+   a zaznie tón, ktorý v sérii stúpa. Minutý prvok zošedne a combo sa vynuluje. HUD ukazuje „Puk úspechy/všetky“.
+5. Dole na stránke je **Správa z testu kamery** pre vývoj (plynulosť snímok, kamera, kalibrácia).
 
 ## Bezpečnosť
 
@@ -168,7 +168,8 @@ Všetky laditeľné hodnoty sú v [`src/config.ts`](src/config.ts). Ako prvé sa
 | `obstacles.slalom`, `.stars`, `.wideDangle`, `.pokeCheck` | — | Počty prvkov, rozostupy (časy medzi prvkami) a šírky vzorov. |
 | `fairness.maxPuckShiftSpeed` | 1,5 m/s | Ako rýchlo musíš najviac presúvať puk medzi prekážkami. |
 | `obstacles.sideBlock.innerX` | 0,1 m | Aký veľký úkrok je pri obrancovi potrebný. |
-| `playArea.width`, `.depth`, `.centerDistance` | 2,0 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk. |
+| `playArea.width`, `.depth`, `.centerDistance` | 1,5 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk (šírka obmedzuje aj bočné posuny prekážok). |
+| `puck.*` | — | Tolerancie posudzovania puku (brána, hviezda, slalom) a body za prvok. |
 | `playArea.showWhilePlaying`, `.showTrack` | vyp, vyp | Plocha aj počas hrania; čiary dráhy k miestu spawnu. |
 | `difficulty.*` | — | Rýchlosti, intervaly, odomykanie typov a predvoľby obtiažnosti. |
 

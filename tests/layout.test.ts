@@ -99,6 +99,9 @@ describe('rozostupy tlačidiel', () => {
     for (const id of ['setup', 'ready', 'paused', 'gameOver', 'settings', 'playing'] as LayoutId[]) {
       cases.push([id, c, 'front'], [id, c, 'pause']);
     }
+    // S kamerou na puk: štvrtý rad nastavení a panel kalibrácie puku.
+    const withPuck = { ...c, puckTracking: true };
+    cases.push(['settings', withPuck, 'front'], ['settings', withPuck, 'pause'], ['puck', withPuck, 'front'], ['puck', withPuck, 'pause']);
   }
 
   it.each(cases)('%s: medzi susednými tlačidlami je aspoň 2 × hysteréza', (id, c, at) => {
@@ -116,6 +119,16 @@ describe('rozostupy tlačidiel', () => {
         }
       }
     }
+  });
+
+  it('Kalibrácia puku je v nastaveniach len so sledovaním puku a Hotovo je nad panelom kamery', () => {
+    const ids = (c: LayoutContext) => computeLayout('settings', c, CONFIG).buttons.map((b) => b.id);
+    expect(ids(ctx())).not.toContain('set.puck');
+    expect(ids(ctx({ puckTracking: true }))).toContain('set.puck');
+    const puck = computeLayout('puck', ctx({ puckTracking: true }), CONFIG);
+    const panel = puck.texts.find((t) => t.id === 'puckInfo')!;
+    const done = puck.buttons.find((b) => b.id === 'puck.done')!;
+    expect(done.cy - done.halfH).toBeGreaterThan(panel.cy + panel.halfH);
   });
 
   it('po kalibrácii pohľad vpred vo výške očí nepadne na Štart', () => {

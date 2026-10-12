@@ -1,35 +1,54 @@
 /**
  * Zdieľané geometrie, materiály a textúry (generované za behu, bez externých assetov).
- * Výrazné farby a svietiace okraje, aby boli prekážky dobre viditeľné v passthrough.
+ * Pokojné matné farby bez žiariacich obrysov: prekážky majú byť dobre vidieť v passthrough,
+ * ale nerušiť. Výrazná je až spätná väzba (render/feedback.ts).
  */
 import {
-  AdditiveBlending,
-  BackSide,
   BoxGeometry,
   CanvasTexture,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
+  Float32BufferAttribute,
   MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
+  Quaternion,
+  RingGeometry,
   SRGBColorSpace,
   Shape,
   ShapeGeometry,
   SphereGeometry,
+  Vector3,
   type BufferGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const PALETTE = {
-  highBar: 0xff2d78,
-  sideBlock: 0xff8a1f,
-  doubleBlock: 0xffb81f,
-  lowBar: 0x22e3ff,
-  cone: 0xff5a1a,
-  gap: 0x2bff88,
-  star: 0xffd84d,
-  stick: 0xff3b3b,
+  highBar: 0xe0457b,
+  lowBar: 0x3cc3e0,
+  cone: 0xf0702e,
+  gap: 0x3ddc84,
+  star: 0xf0c94a,
+  stick: 0xd9534f,
+  /** Spätná väzba: puk prešiel / minul. */
+  hit: 0x3ddc84,
+  miss: 0x9aa3ad,
+};
+
+/** Farby tímu hokejistu (dres, pruhy, helma, rukavice). */
+export interface TeamColors {
+  jersey: number;
+  stripe: number;
+  helmet: number;
+  gloves: number;
+}
+
+/** Jeden obranca: červený dres (ako bočný blok). Dvojica: modrá so žltou (dvojitý blok). */
+export const TEAMS: Record<'red' | 'blue', TeamColors> = {
+  red: { jersey: 0xc8102e, stripe: 0xf2f2f2, helmet: 0x17191d, gloves: 0x8f0b20 },
+  blue: { jersey: 0x1f4fbf, stripe: 0xffd23f, helmet: 0x1f4fbf, gloves: 0x17191d },
 };
 
 /** Päťcípa hviezda s polomerom 1, ležiaca na podlahe. */
@@ -55,25 +74,92 @@ function canvasTexture(size: number, draw: (ctx: CanvasRenderingContext2D, s: nu
   return texture;
 }
 
-/** Defender pre bočný blok, postavený pre výšku 1,75 m s chodidlami v počiatku. */
-function defenderGeometry(): BufferGeometry {
+/** Geometria s jednou farbou vo vertexoch (diely hokejistu sa zlúčia do jedného meshu). */
+function colored(g: BufferGeometry, hex: number): BufferGeometry {
+  const c = new Color(hex);
+  const n = g.getAttribute('position').count;
+  const colors = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    colors[3 * i] = c.r;
+    colors[3 * i + 1] = c.g;
+    colors[3 * i + 2] = c.b;
+  }
+  g.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  return g;
+}
+
+const UP = new Vector3(0, 1, 0);
+
+/** Valec od bodu a po bod b (polomer pri a a pri b). */
+function limb(a: [number, number, number], b: [number, number, number], ra: number, rb: number, seg = 8): BufferGeometry {
+  const from = new Vector3(...a);
+  const dir = new Vector3(...b).sub(from);
+  const len = dir.length();
+  const g = new CylinderGeometry(rb, ra, len, seg);
+  g.applyQuaternion(new Quaternion().setFromUnitVectors(UP, dir.normalize()));
+  g.translate(from.x + (b[0] - a[0]) / 2, from.y + (b[1] - a[1]) / 2, from.z + (b[2] - a[2]) / 2);
+  return g;
+}
+
+function box(w: number, h: number, d: number, x: number, y: number, z: number): BufferGeometry {
+  return new BoxGeometry(w, h, d).translate(x, y, z);
+}
+
+function ellipsoid(r: number, sx: number, sy: number, sz: number, x: number, y: number, z: number): BufferGeometry {
+  return new SphereGeometry(r, 12, 8).scale(sx, sy, sz).translate(x, y, z);
+}
+
+/**
+ * Hokejista z primitív (≈1,75 m, chodidlá v počiatku, tvárou k +z, hokejka na strane +x):
+ * korčule, štulpne s pruhom, nohavice, dres s pruhom a ramenami, helma s plexi, rukavice, hokejka.
+ * Všetko je jeden mesh s farbami vo vertexoch (jeden draw call).
+ */
+function hockeyPlayerGeometry(team: TeamColors): BufferGeometry {
+  const PANTS = 0x1b1d22;
+  const BOOT = 0x16181c;
+  const BLADE = 0xcfd6dc;
+  const SKIN = 0xe0b48f;
+  const VISOR = 0xb9cfe0;
+  const SHAFT = 0x25282d;
+  const TAPE = 0xeceff2;
   const parts: BufferGeometry[] = [];
-  const box = (w: number, h: number, d: number, x: number, y: number, z = 0, rotZ = 0) => {
-    const g = new BoxGeometry(w, h, d);
-    if (rotZ) g.rotateZ(rotZ);
-    g.translate(x, y, z);
-    parts.push(g);
-  };
-  box(0.15, 0.78, 0.17, -0.12, 0.39);
-  box(0.15, 0.78, 0.17, 0.12, 0.39);
-  box(0.46, 0.62, 0.27, 0, 1.08);
-  box(0.62, 0.15, 0.31, 0, 1.4);
-  box(0.12, 0.5, 0.12, -0.33, 1.15);
-  box(0.12, 0.5, 0.12, 0.33, 1.15);
-  box(0.035, 1.35, 0.035, 0.52, 0.55, 0.05, 0.42); // hokejka
-  const helmet = new SphereGeometry(0.135, 12, 8);
-  helmet.translate(0, 1.6, 0);
-  parts.push(helmet);
+  const add = (g: BufferGeometry, color: number) => parts.push(colored(g, color));
+
+  for (const s of [-1, 1]) {
+    const x = 0.11 * s;
+    add(box(0.012, 0.03, 0.3, x, 0.015, 0.03), BLADE);
+    add(box(0.1, 0.12, 0.27, x, 0.09, 0.04), BOOT);
+    add(limb([x, 0.15, 0], [x * 1.08, 0.5, 0.02], 0.058, 0.066), team.jersey);
+    add(limb([x * 1.04, 0.34, 0.008], [x * 1.05, 0.39, 0.01], 0.067, 0.068), team.stripe);
+    add(limb([x * 1.08, 0.48, 0.01], [x * 1.18, 0.8, 0], 0.1, 0.11), PANTS);
+  }
+  add(box(0.44, 0.12, 0.27, 0, 0.82, 0), PANTS);
+  // Dres: zúžený valec sploštený do hĺbky, pruh pri spodnom okraji a ramená.
+  add(new CylinderGeometry(0.245, 0.215, 0.52, 12).scale(1, 1, 0.62).translate(0, 1.08, 0), team.jersey);
+  add(new CylinderGeometry(0.218, 0.218, 0.05, 12).scale(1, 1, 0.63).translate(0, 0.88, 0), team.stripe);
+  for (const s of [-1, 1]) add(ellipsoid(0.13, 1, 0.75, 0.9, 0.2 * s, 1.3, 0), team.jersey);
+  add(limb([0, 1.34, 0], [0, 1.43, 0.01], 0.055, 0.05), PANTS);
+  // Hlava: tvár pod helmou, helma, plexi.
+  add(ellipsoid(0.085, 1, 1.05, 1, 0, 1.52, 0.04), SKIN);
+  add(ellipsoid(0.12, 1, 1.02, 1.12, 0, 1.57, -0.01), team.helmet);
+  add(box(0.19, 0.045, 0.03, 0, 1.555, 0.115), VISOR);
+
+  // Ruky drží hokejku vpredu: horná ruka pri tele, spodná nižšie na strane hokejky.
+  const top: [number, number, number] = [0.05, 1.05, 0.3];
+  const low: [number, number, number] = [0.2, 0.8, 0.38];
+  add(limb([0.27, 1.27, 0], [0.33, 1.0, 0.18], 0.065, 0.058), team.jersey);
+  add(limb([0.33, 1.0, 0.18], low, 0.058, 0.05), team.jersey);
+  add(limb([0.315, 1.06, 0.13], [0.33, 1.0, 0.18], 0.064, 0.064), team.stripe);
+  add(limb([-0.27, 1.27, 0], [-0.2, 1.08, 0.2], 0.065, 0.058), team.jersey);
+  add(limb([-0.2, 1.08, 0.2], top, 0.058, 0.05), team.jersey);
+  add(limb([-0.22, 1.13, 0.15], [-0.2, 1.08, 0.2], 0.064, 0.064), team.stripe);
+  add(box(0.11, 0.1, 0.12, ...top), team.gloves);
+  add(box(0.11, 0.1, 0.12, ...low), team.gloves);
+  // Hokejka: žŕdka cez obe ruky po podlahu a čepeľ s páskou.
+  const heel: [number, number, number] = [0.66, 0.04, 0.62];
+  add(limb([0.02, 1.1, 0.28], heel, 0.016, 0.016, 6), SHAFT);
+  add(box(0.32, 0.07, 0.018, heel[0] + 0.14, 0.035, heel[2]), TAPE);
+
   const merged = mergeGeometries(parts)!;
   for (const p of parts) p.dispose();
   return merged;
@@ -82,48 +168,38 @@ function defenderGeometry(): BufferGeometry {
 export function createResources() {
   const shadowTexture = canvasTexture(128, (ctx, s) => {
     const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-    g.addColorStop(0, 'rgba(0,0,0,0.75)');
-    g.addColorStop(0.55, 'rgba(0,0,0,0.35)');
+    g.addColorStop(0, 'rgba(0,0,0,0.6)');
+    g.addColorStop(0.55, 'rgba(0,0,0,0.28)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
   });
   const fadeUpTexture = canvasTexture(64, (ctx, s) => {
     const g = ctx.createLinearGradient(0, s, 0, 0);
-    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0, 'rgba(255,255,255,0.4)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
   });
   const chevronTexture = canvasTexture(128, (ctx, s) => {
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fillRect(0, 0, s, s);
-    ctx.strokeStyle = 'rgba(255,255,255,1)';
-    ctx.lineWidth = s * 0.09;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = s * 0.07;
     ctx.lineJoin = 'round';
     for (const y of [0.3, 0.62]) {
       ctx.beginPath();
-      ctx.moveTo(s * 0.22, s * (y - 0.12));
-      ctx.lineTo(s * 0.5, s * (y + 0.1));
-      ctx.lineTo(s * 0.78, s * (y - 0.12));
+      ctx.moveTo(s * 0.25, s * (y - 0.1));
+      ctx.lineTo(s * 0.5, s * (y + 0.08));
+      ctx.lineTo(s * 0.75, s * (y - 0.1));
       ctx.stroke();
     }
-    ctx.strokeRect(0, 0, s, s);
   });
 
-  const solid = (color: number) =>
-    new MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.45 });
-  const rim = (color: number) =>
-    new MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.55,
-      blending: AdditiveBlending,
-      side: BackSide,
-      depthWrite: false,
-    });
+  const solid = (color: number) => new MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.22 });
   const zone = (color: number) =>
-    new MeshBasicMaterial({ color, transparent: true, opacity: 0.16, depthWrite: false, side: DoubleSide });
+    new MeshBasicMaterial({ color, transparent: true, opacity: 0.05, depthWrite: false, side: DoubleSide });
+  const player = () => new MeshLambertMaterial({ vertexColors: true });
 
   return {
     geometry: {
@@ -132,13 +208,14 @@ export function createResources() {
       floorPlane: new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
       rod: new CylinderGeometry(0.5, 0.5, 1, 12).rotateZ(Math.PI / 2),
       cone: new ConeGeometry(1, 1, 14).translate(0, 0.5, 0),
-      defender: defenderGeometry(),
+      playerRed: hockeyPlayerGeometry(TEAMS.red),
+      playerBlue: hockeyPlayerGeometry(TEAMS.blue),
       star: starGeometry(),
-      beam: new CylinderGeometry(0.5, 0.5, 1, 12, 1, true).translate(0, 0.5, 0),
+      /** Krúžok na podlahe s polomerom 1 (spätná väzba). */
+      ring: new RingGeometry(0.82, 1, 40).rotateX(-Math.PI / 2),
     },
     material: {
       highBar: solid(PALETTE.highBar),
-      highBarRim: rim(PALETTE.highBar),
       highBarCurtain: new MeshBasicMaterial({
         color: PALETTE.highBar,
         map: fadeUpTexture,
@@ -146,43 +223,35 @@ export function createResources() {
         depthWrite: false,
         side: DoubleSide,
       }),
-      sideBlock: solid(PALETTE.sideBlock),
-      sideBlockRim: rim(PALETTE.sideBlock),
-      sideBlockZone: zone(PALETTE.sideBlock),
-      doubleBlock: solid(PALETTE.doubleBlock),
-      doubleBlockRim: rim(PALETTE.doubleBlock),
-      doubleBlockZone: zone(PALETTE.doubleBlock),
+      player: player(),
+      sideBlockZone: zone(TEAMS.red.jersey),
+      doubleBlockZone: zone(TEAMS.blue.jersey),
       gapWindow: new MeshBasicMaterial({
         color: PALETTE.gap,
         transparent: true,
-        opacity: 0.14,
+        opacity: 0.07,
         depthWrite: false,
         side: DoubleSide,
       }),
       lowBar: solid(PALETTE.lowBar),
-      lowBarRim: rim(PALETTE.lowBar),
       cone: solid(PALETTE.cone),
-      coneRim: rim(PALETTE.cone),
       gapStrip: new MeshBasicMaterial({
         color: PALETTE.gap,
         map: chevronTexture,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+        side: DoubleSide,
+      }),
+      gapEdge: solid(PALETTE.gap),
+      star: new MeshBasicMaterial({
+        color: PALETTE.star,
         transparent: true,
         opacity: 0.85,
         depthWrite: false,
         side: DoubleSide,
       }),
-      gapEdge: solid(PALETTE.gap),
-      star: new MeshBasicMaterial({ color: PALETTE.star, side: DoubleSide, toneMapped: false }),
-      starBeam: new MeshBasicMaterial({
-        color: PALETTE.star,
-        map: fadeUpTexture,
-        transparent: true,
-        blending: AdditiveBlending,
-        depthWrite: false,
-        side: DoubleSide,
-      }),
       stick: solid(PALETTE.stick),
-      stickRim: rim(PALETTE.stick),
       shadow: new MeshBasicMaterial({
         color: 0x000000,
         map: shadowTexture,

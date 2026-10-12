@@ -128,6 +128,10 @@ export function installHooks(app: App, device: XRDevice | null): void {
       else pilot.stop();
       return pilot.active;
     },
+    /** Posun virtuálneho puku autopilota do strany (m), napr. 0,5 = ukážka minutí. */
+    demoPuckOffset(x: number): void {
+      if (pilot) pilot.missOffset = x;
+    },
     /** Odstráni všetky prekážky. */
     clearObstacles(): void {
       for (const o of game.sim.obstacles) o.active = false;

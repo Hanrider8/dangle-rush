@@ -25,10 +25,25 @@ export function createHeadSample(): HeadSample {
   return { valid: false, px: 0, py: 0, pz: 0, qx: 0, qy: 0, qz: 0, qw: 1 };
 }
 
+/**
+ * Poloha puku z kamery v hernom priestore (na podlahe). `age` je, ako dávno kamera puk zachytila (s):
+ * prekážky sa medzitým posunuli, simulácia to pri posudzovaní započíta. Bez kamery je `valid` false.
+ */
+export interface PuckSample {
+  valid: boolean;
+  x: number;
+  z: number;
+  age: number;
+}
+
+export function createPuckSample(): PuckSample {
+  return { valid: false, x: 0, z: 0, age: 0 };
+}
+
 export type GameState = 'SETUP' | 'READY' | 'COUNTDOWN' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
 
-/** Podpanel v stavoch READY, PAUSED a GAME_OVER. */
-export type SubPanel = 'main' | 'settings' | 'recenter';
+/** Podpanel v stavoch READY, PAUSED a GAME_OVER (puck = kalibrácia kamery na puk). */
+export type SubPanel = 'main' | 'settings' | 'recenter' | 'puck';
 
 export type AutoPauseReason = 'visibility' | 'tracking' | 'reset' | 'sessionEnd';
 
@@ -70,6 +85,16 @@ export type ButtonId =
   | 'set.countdown'
   | 'set.calibrate'
   | 'set.back'
-  | 'set.debug';
+  | 'set.debug'
+  | 'set.puck'
+  | 'puck.done';
 
-export type TextId = 'setupInfo' | 'readyInfo' | 'countdown' | 'pausedTitle' | 'results' | 'settingsTitle';
+/** puckInfo: miesto pre panel kamery pri kalibrácii puku (kreslí ho modul kamery). */
+export type TextId =
+  | 'setupInfo'
+  | 'readyInfo'
+  | 'countdown'
+  | 'pausedTitle'
+  | 'results'
+  | 'settingsTitle'
+  | 'puckInfo';

@@ -13,6 +13,13 @@ export const MAX_OBSTACLES = 24;
 /** Najviac prvkov vo vzore na zemi. */
 export const MAX_ELEMENTS = 6;
 
+/** Posúdenie prvku vzoru pukom. */
+export const ELEM_PENDING = 0;
+export const ELEM_HIT = 1;
+export const ELEM_MISS = 2;
+/** Puk nebolo vidieť (alebo hra beží bez kamery): prvok len prešiel plochou. */
+export const ELEM_UNKNOWN = 3;
+
 export class Obstacle {
   active = false;
   id = 0;
@@ -43,6 +50,9 @@ export class Obstacle {
   /** Prvky vzoru: kadiaľ má ísť puk. */
   readonly elemPuckX = new Float64Array(MAX_ELEMENTS);
   elemCount = 0;
+  /** Prvky vzoru: posúdenie pukom (ELEM_*) a počet posúdených prvkov. */
+  readonly elemResult = new Uint8Array(MAX_ELEMENTS);
+  judged = 0;
   /** Pohyblivá hokejka: stred tyče na začiatku a na konci presunu a úsek dráhy z0 → z1 presunu. */
   sweepFrom = 0;
   sweepTo = 0;
@@ -88,6 +98,8 @@ function reset(o: Obstacle, kind: ObstacleKind, body: boolean, halfDepth: number
   o.x0 = 0;
   o.x1 = 0;
   o.elemCount = 0;
+  o.elemResult.fill(ELEM_PENDING);
+  o.judged = 0;
   o.sweepFrom = 0;
   o.sweepTo = 0;
   o.sweepZ0 = 0;
@@ -302,6 +314,36 @@ export function headWindow(
       out.hi = gapX + half;
       return;
     }
+  }
+}
+
+/**
+ * Prešiel puk (stred v x) prvkom i prekážky na zemi? Volá sa, keď prvok prechádza čiarou puku.
+ * Brána a hviezda: puk v medzere / na hviezde; slalom: na správnej strane kužeľa;
+ * nízka tyč a pohyblivá hokejka: mimo tyče na strane medzery (pri hokejke v konečnej polohe).
+ */
+export function puckPassesElement(o: Obstacle, i: number, x: number, cfg: Config): boolean {
+  const p = cfg.puck;
+  switch (o.kind) {
+    case 'coneGate':
+    case 'wideDangle':
+      return Math.abs(x - o.elemX[i]!) <= o.gapW / 2 + p.gateTolerance;
+    case 'stars':
+      return Math.abs(x - o.elemX[i]!) <= cfg.obstacles.stars.radius + p.starTolerance;
+    case 'slalom': {
+      const side = o.elemPuckX[i]! >= o.elemX[i]! ? 1 : -1;
+      return (x - o.elemX[i]!) * side >= p.slalomMargin;
+    }
+    case 'lowBar':
+      // Tyč vychádza zo strany side, medzera je na opačnej strane.
+      return o.side < 0 ? x >= o.x1 - p.gateTolerance : x <= o.x0 + p.gateTolerance;
+    case 'pokeCheck': {
+      // Hokejka skončí na strane opačnej ako medzera (side); jej koniec pri medzere je end.
+      const end = o.sweepTo + (o.side * (o.x1 - o.x0)) / 2;
+      return (x - end) * o.side >= -p.gateTolerance;
+    }
+    default:
+      return false;
   }
 }
 

@@ -2,7 +2,8 @@
  * Len pre vývoj: autopilot na ukážku hry v emulátore (`?demo=1` alebo `__dr.demo(true)`).
  *
  * V reálnom čase ovláda emulovaný headset: pozerá na tlačidlá, sleduje prekážky, uhýba obrancom.
- * Kreslí aj virtuálny puk, ktorý ukazuje, kam ho má hráč miešať (hra sama puk nevidí).
+ * Kreslí aj virtuálny puk a posiela ho hre ako puk z kamery (ak kamera nebeží), takže hra prvky
+ * na zemi posudzuje a ukazuje spätnú väzbu. `missOffset` puk posunie do strany (ukážka minutí).
  * Do produkčného buildu sa nedostane.
  */
 import type { XRDevice } from 'iwer';
@@ -10,7 +11,7 @@ import { CylinderGeometry, Euler, Group, Mesh, MeshBasicMaterial, RingGeometry }
 import type { App } from '../app';
 import { CONFIG } from '../config';
 import { clamp } from '../core/math';
-import type { ButtonId } from '../core/types';
+import type { ButtonId, PuckSample } from '../core/types';
 
 const DEG = Math.PI / 180;
 /** Najväčšia rýchlosť virtuálneho puku a posunu hlavy do strany (m/s). */
@@ -19,6 +20,9 @@ const HEAD_SPEED = 1.2;
 
 export class DemoPilot {
   active = false;
+  /** Posun virtuálneho puku do strany (m): ukážka minutí. */
+  missOffset = 0;
+  private ownsPuck = false;
   private readonly puck = new Group();
   private puckX = 0;
   private dribble = 0;
@@ -53,6 +57,10 @@ export class DemoPilot {
     this.device.controlMode = 'programmatic';
     this.headY = this.app.game.eyeHeight;
     this.last = -1;
+    if (!this.app.puckSource) {
+      this.app.puckSource = this.feedPuck;
+      this.ownsPuck = true;
+    }
     this.raf = requestAnimationFrame(this.loop);
   }
 
@@ -60,7 +68,19 @@ export class DemoPilot {
     this.active = false;
     cancelAnimationFrame(this.raf);
     this.puck.visible = false;
+    if (this.ownsPuck) {
+      this.app.puckSource = null;
+      this.ownsPuck = false;
+    }
   }
+
+  /** Virtuálny puk ako puk z kamery (bez oneskorenia). */
+  private readonly feedPuck = (_now: number, out: PuckSample): void => {
+    out.valid = this.app.game.state === 'PLAYING';
+    out.x = this.puckX + this.dribbleOffset() + this.missOffset;
+    out.z = -CONFIG.playArea.centerDistance;
+    out.age = 0;
+  };
 
   private readonly loop = (t: number): void => {
     if (!this.active) return;
@@ -115,7 +135,7 @@ export class DemoPilot {
     }
     this.applyPose();
     this.puck.visible = game.state === 'PLAYING' || game.state === 'COUNTDOWN' || game.state === 'PAUSED';
-    this.puck.position.set(this.puckX + this.dribbleOffset(), 0, -CONFIG.playArea.centerDistance);
+    this.puck.position.set(this.puckX + this.dribbleOffset() + this.missOffset, 0, -CONFIG.playArea.centerDistance);
   }
 
   /** Hra: puk ide k najbližšej medzere na zemi, hlava uhýba obrancom, pohľad sleduje puk a dráhu. */

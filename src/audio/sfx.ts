@@ -73,6 +73,29 @@ export class Sfx {
     src.stop(t + 0.34);
   }
 
+  /**
+   * Puk prešiel prvkom: jemná zvonkohra (tón a oktáva). S každým ďalším úspechom za sebou
+   * stúpne o krok pentatoniky, takže séria znie ako melódia.
+   */
+  chime(streak: number): void {
+    const steps = [0, 2, 4, 7, 9, 12, 14, 16];
+    const f = 784 * Math.pow(2, steps[Math.min(steps.length - 1, Math.max(0, streak - 1))]! / 12);
+    this.tone(f, 0.38, 'sine', 0.2);
+    this.tone(f * 2, 0.22, 'sine', 0.07);
+  }
+
+  /** Puk minul prvok: tichý tupý „tuk“, aby hráč vedel, ale nerušilo to. */
+  miss(): void {
+    this.tone(240, 0.14, 'triangle', 0.13, 0, 160);
+  }
+
+  /** Obídený obranca: swoosh a nižší dvojtón. */
+  bodyPass(): void {
+    this.swoosh(0.7);
+    this.tone(523, 0.18, 'sine', 0.16, 0.04);
+    this.tone(784, 0.3, 'sine', 0.16, 0.12);
+  }
+
   /** Buzz pri zásahu: hlboký zubatý tón a krátky šum. */
   buzz(): void {
     this.tone(110, 0.4, 'sawtooth', 0.35, 0, 65);

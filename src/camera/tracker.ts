@@ -8,7 +8,7 @@
 import type { Config } from '../config';
 import type { PlayFrame } from '../core/playFrame';
 import type { KeyValueStorage } from '../core/settings';
-import type { HeadSample, Vec3 } from '../core/types';
+import type { HeadSample, PuckSample, Vec3 } from '../core/types';
 import type { CalibResult } from '../tracking/calibration';
 import { CameraModel, cameraSideFromLabel, guessParams, type CamParams } from '../tracking/cameraModel';
 import { PoseHistory, createPose } from '../tracking/poseHistory';
@@ -151,6 +151,27 @@ export class PuckTracker {
     this.spreadCount = 0;
     this.puck.valid = false;
     this.bestQuality = 0;
+  }
+
+  /** Puk pre hru (herný priestor): platný, ak prišiel nedávno; vek = od zachytenia kamerou. */
+  fillPuck(nowMs: number, out: PuckSample): void {
+    const p = this.puck;
+    out.valid = p.valid && nowMs - p.received < this.cfg.camera.ring.hideMs;
+    out.x = p.playX;
+    out.z = p.playZ;
+    out.age = Math.max(0, (nowMs - p.capture) / 1000);
+  }
+
+  /**
+   * Hráč otvoril Kalibráciu puku: staré pozorovania sa zahodia a nová kalibrácia nahradí doterajšiu,
+   * aj keď je horšia ako tá z predošlej kalibrácie v tejto session.
+   */
+  beginCalibration(): void {
+    this.obsCount = 0;
+    this.bestQuality = 0;
+    this.calib.lastRequestAt = -Infinity;
+    if (this.paramsSource === 'kalibrácia') this.paramsSource = 'uložená kalibrácia';
+    this.calib.status = 'polož puk ~1 m pred seba a pozeraj sa okolo neho';
   }
 
   /** Zmaže uloženú kalibráciu tejto kamery a vráti sa k odhadu. */

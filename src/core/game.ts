@@ -42,10 +42,12 @@ import {
 import { GameplaySim } from './sim';
 import {
   createHeadSample,
+  createPuckSample,
   type AutoPauseReason,
   type ButtonId,
   type GameState,
   type HeadSample,
+  type PuckSample,
   type SubPanel,
 } from './types';
 
@@ -62,6 +64,9 @@ export interface GameResult {
   maxCombo: number;
   bodyPassed: number;
   floorPassed: number;
+  /** Prvky na zemi, ktorými puk prešiel, a všetky posúdené (len s kamerou, inak 0). */
+  floorHits: number;
+  floorJudged: number;
   hits: number;
   best: number;
   newBest: boolean;
@@ -69,6 +74,13 @@ export interface GameResult {
 }
 
 export type PauseCause = AutoPauseReason | 'button';
+
+function copyPuck(out: PuckSample, p: PuckSample): void {
+  out.valid = p.valid;
+  out.x = p.x;
+  out.z = p.z;
+  out.age = p.age;
+}
 
 function copyHead(out: HeadSample, h: HeadSample): void {
   out.valid = h.valid;
@@ -114,6 +126,10 @@ export class Game {
   readonly headWorld: HeadSample = createHeadSample();
   /** Plocha je vycentrovaná podľa platnej pózy v tejto session. */
   centered = false;
+  /** Puk sleduje kamera (nastavuje modul kamery): v nastaveniach je Kalibrácia puku. */
+  puckTracking = false;
+  /** Posledný odhad puku z kamery (vstup ako póza hlavy). */
+  readonly puck: PuckSample = createPuckSample();
 
   private readonly storage: KeyValueStorage;
   private seed: number;
@@ -128,6 +144,8 @@ export class Game {
   private readonly stepHead0 = vec3();
   private readonly stepHead1 = vec3();
   private readonly tmp = vec3();
+  /** Puk pre jeden fixný krok: vek sa zmenší o čas, ktorý zostáva do konca snímku. */
+  private readonly stepPuck: PuckSample = createPuckSample();
 
   constructor(options: GameOptions = {}) {
     this.cfg = options.config ?? CONFIG;
@@ -157,11 +175,16 @@ export class Game {
     this.relayout();
   }
 
-  /** Jeden snímok: prepočet hlavy a toľko fixných krokov, koľko sa nazbieralo času. */
-  update(frameDt: number, headWorld: HeadSample): void {
+  /**
+   * Jeden snímok: prepočet hlavy a toľko fixných krokov, koľko sa nazbieralo času.
+   * `puck` je odhad puku z kamery (bez kamery sa vynechá a prvky na zemi sa neposudzujú).
+   */
+  update(frameDt: number, headWorld: HeadSample, puck?: PuckSample): void {
     const sim = this.cfg.sim;
     const dt = frameDt > 0 ? Math.min(frameDt, sim.maxFrameDt) : 0;
     this.readHead(headWorld);
+    if (puck) copyPuck(this.puck, puck);
+    else this.puck.valid = false;
     this.acc += dt;
     let steps = Math.floor(this.acc / sim.fixedDt + 1e-9);
     if (steps > sim.maxStepsPerFrame) {
@@ -172,11 +195,20 @@ export class Game {
     for (let i = 0; i < steps; i++) {
       lerpVec(this.stepHead0, this.prevHead, this.head, i / steps);
       lerpVec(this.stepHead1, this.prevHead, this.head, (i + 1) / steps);
+      copyPuck(this.stepPuck, this.puck);
+      this.stepPuck.age = Math.max(0, this.puck.age - (steps - 1 - i) * sim.fixedDt);
       this.step(sim.fixedDt);
     }
     this.acc = Math.max(0, this.acc - steps * sim.fixedDt);
     if (steps > 0) copyVec(this.prevHead, this.head);
     this.alpha = this.acc / sim.fixedDt;
+  }
+
+  /** Modul kamery hlási, či sleduje puk (v nastaveniach pribudne Kalibrácia puku). */
+  setPuckTracking(on: boolean): void {
+    if (this.puckTracking === on) return;
+    this.puckTracking = on;
+    this.relayout();
   }
 
   /** Debug overlay (nastavenie sa uloží). */
@@ -204,7 +236,7 @@ export class Game {
         this.stepCountdown(dt);
         break;
       case 'PLAYING':
-        this.sim.step(dt, this.stepHead0, this.stepHead1);
+        this.sim.step(dt, this.stepHead0, this.stepHead1, this.stepPuck);
         if (this.sim.lives <= 0) this.toGameOver();
         break;
       case 'READY':
@@ -247,6 +279,14 @@ export class Game {
         return;
       case 'set.back':
         this.sub = 'main';
+        this.relayout();
+        return;
+      case 'set.puck':
+        this.sub = 'puck';
+        this.relayout();
+        return;
+      case 'puck.done':
+        this.sub = 'settings';
         this.relayout();
         return;
       case 'set.calibrate':
@@ -342,6 +382,8 @@ export class Game {
       maxCombo: sim.maxCombo,
       bodyPassed: sim.bodyPassed,
       floorPassed: sim.floorPassed,
+      floorHits: sim.floorHits,
+      floorJudged: sim.floorHits + sim.floorMisses,
       hits: sim.hits,
       best: this.best[d],
       newBest,
@@ -466,6 +508,7 @@ export class Game {
       setupHeight: this.setupHeight,
       pauseSide: this.settings.pauseSide,
       pausePosition: this.settings.pausePosition,
+      puckTracking: this.puckTracking,
     };
   }
 

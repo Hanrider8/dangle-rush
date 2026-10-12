@@ -8,8 +8,10 @@ import { CONFIG } from './config';
 import type { GameEvent } from './core/events';
 import { Game } from './core/game';
 import type { KeyValueStorage } from './core/settings';
-import { createHeadSample } from './core/types';
+import { MAX_ELEMENTS } from './core/obstacles';
+import { createHeadSample, createPuckSample, type PuckSample } from './core/types';
 import { HitVignette } from './render/effects';
+import { FloorFeedback } from './render/feedback';
 import { createResources } from './render/materials';
 import { ObstacleViews } from './render/obstacleViews';
 import { PlayAreaView } from './render/playArea';
@@ -27,10 +29,14 @@ export class App {
   readonly game: Game;
   readonly ui: UiManager;
   readonly obstacles: ObstacleViews;
+  readonly feedback: FloorFeedback;
   readonly playArea = new PlayAreaView();
   readonly vignette = new HitVignette();
   readonly sfx = new Sfx(CONFIG.audio.volume);
   readonly head = createHeadSample();
+  /** Puk pre hru: vyplní ho puckSource (kamera, v emulátore autopilot), inak je neplatný. */
+  readonly puck = createPuckSample();
+  puckSource: ((nowMs: number, out: PuckSample) => void) | null = null;
   readonly tracking = new TrackingMonitor(CONFIG.tracking.lostGrace);
   readonly inputGuard = new InputGuard();
   session: XRSession | null = null;
@@ -51,8 +57,11 @@ export class App {
     this.rig = createScene();
     this.game = new Game({ storage, seed: Date.now() & 0x7fffffff });
     this.rig.playRoot.add(this.playArea.root);
-    this.obstacles = new ObstacleViews(createResources(), CONFIG);
+    const resources = createResources();
+    this.obstacles = new ObstacleViews(resources, CONFIG);
     this.rig.playRoot.add(this.obstacles.root);
+    this.feedback = new FloorFeedback(resources, CONFIG);
+    this.rig.playRoot.add(this.feedback.root);
     this.rig.scene.add(this.vignette.mesh);
     this.ui = new UiManager(CONFIG, this.rig.playRoot, this.rig.scene);
     document.addEventListener('visibilitychange', () => {
@@ -107,6 +116,7 @@ export class App {
     applyPlayFrame(this.rig.playRoot, game.playFrame);
     this.playArea.update(dt, game.state === 'PLAYING');
     this.obstacles.sync(game.sim, game.alpha, dt);
+    this.feedback.update(dt, game.alpha, game.sim);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
     this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount);
@@ -119,7 +129,9 @@ export class App {
     const tracking = this.tracking.update(dt, this.head.valid);
     if (tracking) this.devLog?.push(`tracking ${tracking}`);
     if (tracking === 'lost') this.game.autoPause('tracking');
-    this.game.update(dt, this.head);
+    if (this.puckSource) this.puckSource(performance.now(), this.puck);
+    else this.puck.valid = false;
+    this.game.update(dt, this.head, this.puck);
     this.game.events.drain(this.onEvent);
   }
 
@@ -142,10 +154,23 @@ export class App {
         sfx.beep(true);
         break;
       case 'passBody':
-        sfx.swoosh(1);
+        sfx.bodyPass();
+        this.obstacles.passOut(e.n);
         break;
       case 'passFloor':
-        sfx.swoosh(0.35);
+        // Bez kamery (nič neposúdené) aspoň tichý swoosh za celý vzor.
+        if (e.n === 0) sfx.swoosh(0.35);
+        break;
+      case 'floorHit':
+        sfx.chime(this.game.sim.combo);
+        this.spawnFeedback(e.n, 'hit');
+        break;
+      case 'floorMiss':
+        sfx.miss();
+        this.spawnFeedback(e.n, 'miss');
+        break;
+      case 'floorPass':
+        this.spawnFeedback(e.n, 'pass');
         break;
       case 'hit':
         sfx.buzz();
@@ -164,6 +189,13 @@ export class App {
         break;
     }
   };
+
+  /** Efekt pri prvku na zemi; code = id prekážky × MAX_ELEMENTS + prvok. */
+  private spawnFeedback(code: number, kind: 'hit' | 'miss' | 'pass'): void {
+    const id = Math.floor(code / MAX_ELEMENTS);
+    const o = this.game.sim.obstacles.find((x) => x.active && x.id === id);
+    if (o) this.feedback.spawn(o, code - id * MAX_ELEMENTS, kind);
+  }
 
   private readonly onEnd = (): void => {
     this.game.autoPause('sessionEnd');

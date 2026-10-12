@@ -44,7 +44,7 @@
       .safety { margin-top: 28px; font-size: 0.9rem; color: var(--muted); }
       #app canvas { display: block; }
       body.in-xr #landing { display: none; }
-      /* Test kamery (?cam=1) */
+      /* Sledovanie puku kamerou (?cam=1) */
       #cam { margin: 0 0 28px; padding: 20px 0 4px; border-top: 1px solid #23324a; border-bottom: 1px solid #23324a; }
       #cam-details { margin-top: 24px; }
       #cam-details summary { cursor: pointer; font-weight: 700; color: var(--fg); }
@@ -103,10 +103,10 @@
         <li>Tlačidlo v hre aktivuješ tak, že sa naň chvíľu pozeráš.</li>
       </ol>
       <section id="cam" hidden>
-        <h2>Test kamery</h2>
+        <h2>Sledovanie puku kamerou</h2>
         <p class="note">
-          Hra zatiaľ puk nevyhodnocuje. Test ukáže, čo vidí kamera headsetu, kde našla puk a kam ho
-          premietla na podlahu.
+          Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku. Keď puk prejde hviezdou, bránou
+          alebo okolo kužeľa zo správnej strany, prvok zozelenie, zmizne a zaznie tón.
         </p>
         <div class="grid">
           <label>Čo sledovať
@@ -131,10 +131,11 @@
         <canvas id="cam-preview" width="320" height="240"></canvas>
         <ol>
           <li>Povoľ kameru a pozri sa na puk na zemi: v náhľade má byť fialový a v žltom krúžku.</li>
-          <li>Klikni na <b>Spustiť</b>. V AR polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj
-            okolo neho: vľavo, vpravo, bližšie a ďalej. Puk sa pritom nesmie hýbať.</li>
-          <li>Keď sa na puku zastaví zelený krúžok, kalibrácia je hotová (panel vľavo). Potom skús miešať.</li>
-          <li>Po návrate sem skopíruj alebo odfoť správu (dole pod Spustiť).</li>
+          <li>Klikni na <b>Spustiť</b>. Kalibrácia z minula sa pamätá. Ak jemná žiara nesedí na puku, otvor
+            <b>Nastavenia → Kalibrácia puku</b>, polož puk asi meter pred seba a 10 sekúnd sa pomaly pozeraj
+            okolo neho (vľavo, vpravo, bližšie, ďalej). Puk sa pritom nesmie hýbať.</li>
+          <li>Hraj: prvky, cez ktoré puk prešiel, zozelenú a zmiznú, minuté zošednú. HUD ukazuje „Puk úspechy/všetky“.</li>
+          <li>Správa pre vývoj je dole pod Spustiť.</li>
         </ol>
       </section>
       <button id="start" type="button" disabled>Spustiť</button>

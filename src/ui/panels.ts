@@ -55,6 +55,10 @@ function buttonLabel(id: ButtonId, s: Settings): [string, string?] {
       return [STRINGS.buttons.back];
     case 'set.debug':
       return [t.debug, s.debug ? t.on : t.off];
+    case 'set.puck':
+      return [t.puck, t.puckValue];
+    case 'puck.done':
+      return [STRINGS.buttons.done];
   }
 }
 
@@ -132,6 +136,8 @@ export class UiManager {
     for (const b of layout.buttons) this.showButton(game, b);
     for (const b of layout.inactive) this.showButton(game, b);
     for (const t of layout.texts) {
+      // Panel kalibrácie puku kreslí modul kamery (náhľad kamery a stav).
+      if (t.id === 'puckInfo') continue;
       const panel = this.textPanel(t.id, t, game.eyeHeight);
       placeOnRect(panel.mesh, t);
       panel.mesh.visible = true;
@@ -200,6 +206,8 @@ export class UiManager {
         return;
       case 'countdown':
         drawCountdown(panel, String(Math.max(1, Math.ceil(game.countdownLeft - 1e-9))));
+        return;
+      case 'puckInfo':
         return;
     }
   }
@@ -301,7 +309,7 @@ function drawResults(panel: CanvasPanel, game: Game): void {
       [t.time, formatClock(r.time)],
       [t.maxCombo, String(r.maxCombo)],
       [t.body, String(r.bodyPassed)],
-      [t.floor, String(r.floorPassed)],
+      [t.floor, r.floorJudged > 0 ? `${r.floorHits} / ${r.floorJudged}` : String(r.floorPassed)],
       [`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)],
     ];
     const size = Math.round(h * 0.075);

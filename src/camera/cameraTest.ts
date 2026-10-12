@@ -73,6 +73,7 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   let xrStart = 0;
   let restartedThisSession = false;
   let lastXrTime = -1;
+  let wasCalibrating = false;
   /** Plynulosť XR snímok: celkovo, počas hry a bez bežiacej kamery (na porovnanie). */
   const xr = { all: new FrameStats(), playing: new FrameStats(), noCamera: new FrameStats(), targetHz: 0 };
 
@@ -163,6 +164,9 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
     const label = source.track?.label ?? '';
     const s = source.track?.getSettings() ?? {};
     tracker.useCamera(label, s.width ?? requested.width, s.height ?? requested.height);
+    // Puk z kamery ide do hry; v nastaveniach pribudne Kalibrácia puku.
+    app.puckSource = (nowMs, out) => tracker.fillPuck(nowMs, out);
+    app.game.setPuckTracking(true);
     setStatus(
       `Kamera beží: ${label || 'kamera'} · ${s.width ?? '?'}×${s.height ?? '?'} @ ${s.frameRate ? Math.round(s.frameRate) : '?'} fps · ${source.pipeline === 'mstp' ? 'MediaStreamTrackProcessor' : 'záloha <video>'}`,
     );
@@ -238,6 +242,10 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
       source.note(`AR session ${xrSessions} začala`);
     }
     const state = app.game.state;
+    // Kalibrácia puku beží len v Nastavenia → Kalibrácia puku; pri otvorení začne odznova.
+    const calibrating = app.game.sub === 'puck';
+    if (calibrating && !wasCalibrating) tracker.beginCalibration();
+    wasCalibrating = calibrating;
     if (lastXrTime >= 0) {
       xr.targetHz = app.session?.frameRate ?? 90;
       const target = 1000 / xr.targetHz;
@@ -248,7 +256,7 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
     }
     lastXrTime = time;
     tracker.onXrFrame(time, app.head);
-    tracker.maybeCalibrate(now, state !== 'PLAYING' && state !== 'COUNTDOWN');
+    tracker.maybeCalibrate(now, calibrating && state !== 'PLAYING' && state !== 'COUNTDOWN');
     view.update(dt, now, tracker, source, app.game, app.head, xr.all);
     // V AR neprichádzajú snímky: kamera sa raz reštartuje (povolenie už je, výzva sa neukáže).
     if (

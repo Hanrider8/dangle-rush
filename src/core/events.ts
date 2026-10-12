@@ -17,7 +17,12 @@ export type GameEventType =
   | 'settingsChanged'
   | 'spawn'
   | 'passBody'
+  /** passBody: n = id prekážky; passFloor: n = počet prvkov vzoru posúdených pukom. */
   | 'passFloor'
+  /** Prvok na zemi: puk ním prešiel / minul ho / neposúdený (n = id prekážky × MAX_ELEMENTS + prvok). */
+  | 'floorHit'
+  | 'floorMiss'
+  | 'floorPass'
   | 'hit'
   | 'cleared'
   | 'gameOver';

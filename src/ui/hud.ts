@@ -29,6 +29,8 @@ export class Hud {
   private score = -1;
   private combo = -1;
   private floor = -1;
+  private floorHits = -1;
+  private floorMisses = -1;
   private seconds = -1;
   private paused = false;
   private hint = '';
@@ -67,6 +69,8 @@ export class Hud {
       score === this.score &&
       sim.combo === this.combo &&
       sim.floorPassed === this.floor &&
+      sim.floorHits === this.floorHits &&
+      sim.floorMisses === this.floorMisses &&
       seconds === this.seconds &&
       paused === this.paused &&
       hint === this.hint
@@ -77,6 +81,8 @@ export class Hud {
     this.score = score;
     this.combo = sim.combo;
     this.floor = sim.floorPassed;
+    this.floorHits = sim.floorHits;
+    this.floorMisses = sim.floorMisses;
     this.seconds = seconds;
     this.paused = paused;
     this.hint = hint;
@@ -118,11 +124,16 @@ export class Hud {
       ctx.fillText(`${STRINGS.hud.time} ${formatClock(sim.time)}`, w * 0.05, row2);
       ctx.textAlign = 'right';
       ctx.fillText(`${STRINGS.hud.combo} ${sim.combo}`, w * 0.95, row2);
-      // Prekážky na zemi, ktoré prešli plochou (puk hra nevidí, len počíta).
+      // S kamerou: prvky, ktorými puk prešiel / všetky posúdené; bez kamery len vzory, čo prešli plochou.
+      const judged = sim.floorHits + sim.floorMisses;
       ctx.textAlign = 'center';
       ctx.font = `700 ${small}px ${FONT_FAMILY}`;
       ctx.fillStyle = COLORS.accent;
-      ctx.fillText(`${STRINGS.hud.puck} ${sim.floorPassed}`, w * 0.5, row2);
+      ctx.fillText(
+        `${STRINGS.hud.puck} ${judged > 0 ? `${sim.floorHits}/${judged}` : sim.floorPassed}`,
+        w * 0.5,
+        row2,
+      );
     });
   }
 }

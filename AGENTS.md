@@ -9,7 +9,8 @@ Hokejový drill pre **Meta Quest 3** vo WebXR s passthrough (`immersive-ar` + `l
 Hráč mieša skutočný puk skutočnou hokejkou a prevádza ho cez virtuálne prekážky na zemi. Občas uhne
 obrancovi. Platia tieto obmedzenia:
 
-- Hra pozná **iba pózu headsetu**. Puk ani hokejku nevidí, prekážky na zemi sa len počítajú.
+- Hra pozná **pózu headsetu**. Puk vidí len so sledovaním kamerou (`?cam=1`): vtedy dostáva `PuckSample` a prvky
+  na zemi posudzuje (úspech / minutie). Bez kamery sa prvky len počítajú. Hokejku nevidí nikdy.
 - Ovládanie je **len pohľadom** (dwell na tlačidle). Vstupy z ovládačov a rúk sa ignorujú, jediný klik je
   „Spustiť“ na stránke.
 - Nasadené je na **https://hanrider8.github.io/dangle-rush/** (repo `Hanrider8/dangle-rush`). Používateľ
@@ -62,7 +63,8 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   collision.ts  swept guľa hlavy vs. AABB (zlatý rez na konvexnej funkcii)
   settings.ts   nastavenia a rekordy cez rozhranie KeyValueStorage (localStorage / MemoryStorage)
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
-  events.ts     predalokovaný ring buffer udalostí (core → audio a efekty)
+  events.ts     predalokovaný ring buffer udalostí (core → audio a efekty); floorHit/floorMiss/floorPass majú
+                n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky
 src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts)
   detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička
   cameraModel.ts dierková komora pripevnená k hlave: pixel ↔ lúč, priesečník s podlahou, záber na podlahe
@@ -73,7 +75,9 @@ src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia 
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
 src/xr/         session (immersive-ar, foveation, 90 Hz), póza hlavy z XRFrame, strata trackingu, ignorovanie vstupov
-src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta
+src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
+                feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), hokejisti z primitív
+                (materials.ts, farby vo vertexoch, jeden draw call)
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
 src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts,
@@ -100,6 +104,11 @@ Kľúčové invarianty:
   Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
 - **Pohyblivá hokejka** závisí len od `z` (`pokeCheckCenter`), takže ju pauza zmrazí. Presun skončí `settleTime`
   pred príchodom k puku.
+- **Posúdenie puku** (`sim.judgeFloor`): puk je vstup ako póza hlavy (`Game.update(dt, head, puck)`), takže pauza
+  aj determinizmus platia. Kamera vidí puk s oneskorením `puck.age`: prvok sa posúdi, keď v čase zachytenia už
+  prešiel čiarou puku (`z − speed·age ≥ puck.z`), podľa `puckPassesElement`. Výsledok je v `o.elemResult[i]`
+  (render posúdený prvok skryje). Úspech: body `puck.scorePerHit` × násobiteľ a combo; minutie combo vynuluje.
+  Bez puku prvok len prejde stredom plochy (ELEM_UNKNOWN, udalosť floorPass).
 - **Test kamery (`?cam=1`)** hru nevyhodnocuje a bez parametra sa vôbec nenačíta. Kamera headsetu ide cez
   `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
   takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
@@ -121,6 +130,7 @@ Kľúčové invarianty:
    - `tests/spawner.test.ts`: `puckPath` v nezávislom checkeri,
    - `tests/obstacles.test.ts`.
 8. `dev/hooks.ts`: vetva v `__dr.place`.
+9. `core/obstacles.ts`: vetva v `puckPassesElement` a `render/feedback.ts`: duch prvku v `spawn`.
 
 **Nové tlačidlo alebo panel:**
 1. `types.ts`: `ButtonId`.
@@ -151,7 +161,8 @@ Skriptovanie cez `window.__dr`:
 | `advance(sekundy)` | posunie hru bez čakania na snímky (deterministicky) |
 | `place('slalom', -3, strana)`, `clearObstacles()` | konkrétne prekážky na vizuálnu kontrolu |
 | `trackingLoss(true)`, `device.updateVisibilityState('visible-blurred')` | auto-pauza |
-| `log()`, `snapshot()`, `demo(true/false)` | záznam udalostí, stav simulácie, autopilot |
+| `log()`, `snapshot()`, `demo(true/false)` | záznam udalostí, stav simulácie, autopilot (posiela hre virtuálny puk) |
+| `demoPuckOffset(0.5)`, `app.puckSource = (now, out) => …` | ukážka minutí, vlastný puk pre spätnú väzbu |
 
 Statické zábery je najlepšie robiť v pauze (`game.autoPause('visibility')`), lebo prekážky stoja.
 

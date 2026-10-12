@@ -1,18 +1,25 @@
 /**
  * Meshe prekážok. Pre každý typ je predalokovaný pool pohľadov, ktoré sa len zapínajú,
  * nastavia podľa prekážky (bind) a posúvajú. Pozícia v z sa interpoluje medzi krokmi simulácie.
+ * Prvok vzoru na zemi sa skryje hneď, ako ho simulácia posúdi (namiesto neho je efekt z feedback.ts).
  */
 import { Group, Mesh, type BufferGeometry, type Material } from 'three';
 import type { Config } from '../config';
-import { MAX_ELEMENTS, MAX_OBSTACLES, pokeCheckCenter, type Obstacle } from '../core/obstacles';
+import { ELEM_PENDING, MAX_ELEMENTS, MAX_OBSTACLES, pokeCheckCenter, type Obstacle } from '../core/obstacles';
 import type { GameplaySim } from '../core/sim';
 import type { ObstacleKind } from '../core/types';
 import type { Resources } from './materials';
 
 const POOL_PER_KIND = 6;
-const RIM = 0.035;
 const FADE_TIME = 0.22;
+/** Obídený obranca sa za tento čas „zosunie“ do podlahy. */
+const PASS_TIME = 0.35;
 const DEFENDER_HEIGHT = 1.75;
+
+/** Prvok vzoru ešte nebol posúdený (ani nezmizol po prejdení plochou). */
+function pending(o: Obstacle, i: number): boolean {
+  return o.elemResult[i] === ELEM_PENDING;
+}
 
 interface ObstacleView {
   readonly kind: ObstacleKind;
@@ -29,9 +36,9 @@ function mesh(geometry: BufferGeometry, material: Material, renderOrder = 0): Me
 }
 
 /** Kváder z jednotkovej geometrie: stred a rozmery. */
-function setBox(m: Mesh, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, grow = 0): void {
+function setBox(m: Mesh, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
   m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  m.scale.set(x1 - x0 + grow, y1 - y0 + grow, z1 - z0 + grow);
+  m.scale.set(x1 - x0, y1 - y0, z1 - z0);
 }
 
 /** Blob tieň na podlahe. */
@@ -44,7 +51,6 @@ class HighBarView implements ObstacleView {
   readonly kind = 'highBar' as const;
   readonly group = new Group();
   private readonly bar: Mesh;
-  private readonly rim: Mesh;
   private readonly curtain: Mesh;
   private readonly postL: Mesh;
   private readonly postR: Mesh;
@@ -57,12 +63,11 @@ class HighBarView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.bar = mesh(g.box, m.highBar);
-    this.rim = mesh(g.box, m.highBarRim, 1);
     this.curtain = mesh(g.plane, m.highBarCurtain, 2);
     this.postL = mesh(g.box, m.highBar);
     this.postR = mesh(g.box, m.highBar);
     this.shadow = mesh(g.floorPlane, m.shadow, 3);
-    this.group.add(this.shadow, this.postL, this.postR, this.bar, this.rim, this.curtain);
+    this.group.add(this.shadow, this.postL, this.postR, this.bar, this.curtain);
   }
 
   bind(o: Obstacle): void {
@@ -71,7 +76,6 @@ class HighBarView implements ObstacleView {
     const t = c.thickness;
     const w = c.width;
     setBox(this.bar, -w / 2, y, -t / 2, w / 2, y + t, t / 2);
-    setBox(this.rim, -w / 2, y, -t / 2, w / 2, y + t, t / 2, RIM);
     setBox(this.postL, -w / 2 - 0.05, 0, -0.03, -w / 2 + 0.01, y + t, 0.03);
     setBox(this.postR, w / 2 - 0.01, 0, -0.03, w / 2 + 0.05, y + t, 0.03);
     // Slabý „záves“ nad tyčou: hore sa nedá prejsť, treba sa zohnúť.
@@ -81,36 +85,32 @@ class HighBarView implements ObstacleView {
   }
 }
 
-/** Defender (silueta obrancu) a priesvitná zóna, ktorú treba obísť. */
+/** Obranca (hokejista) a takmer priesvitná zóna, ktorú treba obísť hlavou. */
 class Defender {
   readonly body: Mesh;
-  readonly rim: Mesh;
   readonly zone: Mesh;
   readonly shadow: Mesh;
 
-  constructor(r: Resources, solid: Material, rim: Material, zone: Material) {
-    this.body = mesh(r.geometry.defender, solid);
-    this.rim = mesh(r.geometry.defender, rim, 1);
+  constructor(r: Resources, geometry: BufferGeometry, zone: Material) {
+    this.body = mesh(geometry, r.material.player);
     this.zone = mesh(r.geometry.box, zone, 2);
     this.shadow = mesh(r.geometry.floorPlane, r.material.shadow, 3);
   }
 
   addTo(group: Group): void {
-    group.add(this.shadow, this.body, this.rim, this.zone);
+    group.add(this.shadow, this.body, this.zone);
   }
 
-  /** Zóna od x0 po x1, defender pri vnútornej hrane (innerX), otočený čelom k hráčovi. */
+  /** Zóna od x0 po x1, hokejista pri vnútornej hrane (innerX), tvárou k hráčovi, hokejka von. */
   set(x0: number, x1: number, innerX: number, top: number, depth: number): void {
     setBox(this.zone, x0, 0, -depth / 2, x1, top, depth / 2);
-    // Prilba defendera siaha po vrch kolíznej zóny.
+    // Helma siaha po vrch kolíznej zóny.
     const scale = Math.max(0.75, Math.min(1.3, top / DEFENDER_HEIGHT));
     const towardOuter = innerX > (x0 + x1) / 2 ? -1 : 1;
-    const x = innerX + towardOuter * 0.38 * scale;
+    const x = innerX + towardOuter * 0.32 * scale;
     this.body.position.set(x, 0, 0);
     this.body.scale.set(towardOuter * scale, scale, scale);
-    this.rim.position.copy(this.body.position);
-    this.rim.scale.set(towardOuter * scale * 1.05, scale * 1.02, scale * 1.08);
-    setShadow(this.shadow, (x0 + x1) / 2, Math.abs(x1 - x0) * 1.1, depth * 2.2);
+    setShadow(this.shadow, x + towardOuter * 0.2 * scale, 1.0 * scale, 0.7 * scale);
   }
 }
 
@@ -123,8 +123,7 @@ class SideBlockView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    const m = r.material;
-    this.defender = new Defender(r, m.sideBlock, m.sideBlockRim, m.sideBlockZone);
+    this.defender = new Defender(r, r.geometry.playerRed, r.material.sideBlockZone);
     this.defender.addTo(this.group);
   }
 
@@ -149,8 +148,8 @@ class DoubleBlockView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     const m = r.material;
-    this.left = new Defender(r, m.doubleBlock, m.doubleBlockRim, m.doubleBlockZone);
-    this.right = new Defender(r, m.doubleBlock, m.doubleBlockRim, m.doubleBlockZone);
+    this.left = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
+    this.right = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
     this.left.addTo(this.group);
     this.right.addTo(this.group);
     this.window = mesh(r.geometry.plane, m.gapWindow, 4);
@@ -185,7 +184,6 @@ class LowBarView implements ObstacleView {
   readonly kind = 'lowBar' as const;
   readonly group = new Group();
   private readonly bar: Mesh;
-  private readonly rim: Mesh;
   private readonly strip: Mesh;
   private readonly shadow: Mesh;
 
@@ -193,10 +191,9 @@ class LowBarView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.bar = mesh(g.rod, m.lowBar);
-    this.rim = mesh(g.rod, m.lowBarRim, 1);
     this.strip = mesh(g.floorPlane, m.gapStrip, 3);
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
-    this.group.add(this.shadow, this.strip, this.bar, this.rim);
+    this.group.add(this.shadow, this.strip, this.bar);
   }
 
   bind(o: Obstacle): void {
@@ -204,82 +201,63 @@ class LowBarView implements ObstacleView {
     const d = o.height;
     this.bar.position.set((o.x0 + o.x1) / 2, d / 2, 0);
     this.bar.scale.set(len, d, d);
-    this.rim.position.copy(this.bar.position);
-    this.rim.scale.set(len + RIM, d + RIM, d + RIM);
     setGapStrip(this.strip, o.gapX, o.gapW);
     setShadow(this.shadow, (o.x0 + o.x1) / 2, len * 1.05, 0.2);
+  }
+
+  update(o: Obstacle): void {
+    this.group.visible = pending(o, 0);
   }
 }
 
 class ConeGateView implements ObstacleView {
   readonly kind = 'coneGate' as const;
   readonly group = new Group();
-  private readonly cones: Mesh[] = [];
-  private readonly rims: Mesh[] = [];
-  private readonly shadows: Mesh[] = [];
+  private readonly cones: ConeMeshes[] = [];
   private readonly strip: Mesh;
 
   constructor(
     r: Resources,
     private readonly cfg: Config,
   ) {
-    const g = r.geometry;
-    const m = r.material;
-    this.strip = mesh(g.floorPlane, m.gapStrip, 3);
+    this.strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
     this.group.add(this.strip);
-    for (let i = 0; i < 2; i++) {
-      const shadow = mesh(g.floorPlane, m.shadow, 2);
-      const cone = mesh(g.cone, m.cone);
-      const rim = mesh(g.cone, m.coneRim, 1);
-      this.shadows.push(shadow);
-      this.cones.push(cone);
-      this.rims.push(rim);
-      this.group.add(shadow, cone, rim);
-    }
+    for (let i = 0; i < 2; i++) this.cones.push(new ConeMeshes(r, this.group));
   }
 
   bind(o: Obstacle): void {
     const c = this.cfg.obstacles.coneGate;
     for (let i = 0; i < 2; i++) {
-      const x = o.gapX + (i === 0 ? -1 : 1) * (o.gapW / 2 + c.coneRadius);
-      this.cones[i]!.position.set(x, 0, 0);
-      this.cones[i]!.scale.set(c.coneRadius, c.coneHeight, c.coneRadius);
-      this.rims[i]!.position.set(x, -RIM / 2, 0);
-      this.rims[i]!.scale.set(c.coneRadius + RIM, c.coneHeight + RIM, c.coneRadius + RIM);
-      setShadow(this.shadows[i]!, x, c.coneRadius * 4, c.coneRadius * 4);
+      this.cones[i]!.set(o.gapX + (i === 0 ? -1 : 1) * (o.gapW / 2 + c.coneRadius), 0, this.cfg);
     }
     setGapStrip(this.strip, o.gapX, o.gapW);
   }
-}
 
+  update(o: Obstacle): void {
+    this.group.visible = pending(o, 0);
+  }
+}
 
 /** Prvok vzoru je vidieť, až keď sa dostane na koniec dráhy (ďalej za ňou by „visel vo vzduchu“). */
 function elementVisible(z: number, dz: number, spawnDistance: number): boolean {
   return z + dz >= -spawnDistance - 0.05;
 }
 
-/** Kužeľ s blob tieňom, voliteľne so svietiacim okrajom. */
+/** Kužeľ s blob tieňom. */
 class ConeMeshes {
   readonly cone: Mesh;
-  readonly rim: Mesh | null;
   readonly shadow: Mesh;
 
-  constructor(r: Resources, group: Group, withRim: boolean) {
+  constructor(r: Resources, group: Group) {
     this.shadow = mesh(r.geometry.floorPlane, r.material.shadow, 2);
     this.cone = mesh(r.geometry.cone, r.material.cone);
-    this.rim = withRim ? mesh(r.geometry.cone, r.material.coneRim, 1) : null;
     group.add(this.shadow, this.cone);
-    if (this.rim) group.add(this.rim);
   }
 
   set(x: number, z: number, cfg: Config): void {
     const c = cfg.obstacles.coneGate;
     this.cone.position.set(x, 0, z);
     this.cone.scale.set(c.coneRadius, c.coneHeight, c.coneRadius);
-    if (this.rim) {
-      this.rim.position.set(x, -RIM / 2, z);
-      this.rim.scale.set(c.coneRadius + RIM, c.coneHeight + RIM, c.coneRadius + RIM);
-    }
     this.shadow.position.set(x, 0.006, z);
     this.shadow.scale.set(c.coneRadius * 4, 1, c.coneRadius * 4);
   }
@@ -287,7 +265,6 @@ class ConeMeshes {
   setVisible(visible: boolean): void {
     this.cone.visible = visible;
     this.shadow.visible = visible;
-    if (this.rim) this.rim.visible = visible;
   }
 }
 
@@ -304,7 +281,7 @@ class SlalomView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
-      this.cones.push(new ConeMeshes(r, this.group, false));
+      this.cones.push(new ConeMeshes(r, this.group));
       const mark = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
       this.marks.push(mark);
       this.group.add(mark);
@@ -331,7 +308,7 @@ class SlalomView implements ObstacleView {
   update(o: Obstacle, z: number): void {
     const d = this.cfg.obstacles.spawnDistance;
     for (let i = 0; i < this.count; i++) {
-      const visible = elementVisible(z, o.elemDz[i]!, d);
+      const visible = pending(o, i) && elementVisible(z, o.elemDz[i]!, d);
       this.cones[i]!.setVisible(visible);
       this.marks[i]!.visible = visible;
     }
@@ -349,7 +326,7 @@ class WideDangleView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    for (let i = 0; i < 4; i++) this.cones.push(new ConeMeshes(r, this.group, true));
+    for (let i = 0; i < 4; i++) this.cones.push(new ConeMeshes(r, this.group));
     for (let i = 0; i < 2; i++) {
       const strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
       this.strips.push(strip);
@@ -372,7 +349,7 @@ class WideDangleView implements ObstacleView {
   update(o: Obstacle, z: number): void {
     const d = this.cfg.obstacles.spawnDistance;
     for (let g = 0; g < 2; g++) {
-      const visible = elementVisible(z, o.elemDz[g]!, d);
+      const visible = pending(o, g) && elementVisible(z, o.elemDz[g]!, d);
       this.cones[g * 2]!.setVisible(visible);
       this.cones[g * 2 + 1]!.setVisible(visible);
       this.strips[g]!.visible = visible;
@@ -380,12 +357,11 @@ class WideDangleView implements ObstacleView {
   }
 }
 
-/** Hviezdy na zemi so svetelným stĺpom, otáčajú sa. */
+/** Hviezdy na zemi (ploché, pokojné). */
 class StarsView implements ObstacleView {
   readonly kind = 'stars' as const;
   readonly group = new Group();
   private readonly stars: Mesh[] = [];
-  private readonly beams: Mesh[] = [];
   private count = 0;
 
   constructor(
@@ -394,10 +370,8 @@ class StarsView implements ObstacleView {
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
       const star = mesh(r.geometry.star, r.material.star, 3);
-      const beam = mesh(r.geometry.beam, r.material.starBeam, 4);
       this.stars.push(star);
-      this.beams.push(beam);
-      this.group.add(star, beam);
+      this.group.add(star);
     }
   }
 
@@ -407,22 +381,16 @@ class StarsView implements ObstacleView {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
       const used = i < o.elemCount;
       this.stars[i]!.visible = used;
-      this.beams[i]!.visible = used;
       if (!used) continue;
       this.stars[i]!.position.set(o.elemX[i]!, 0.012, o.elemDz[i]!);
       this.stars[i]!.scale.setScalar(radius);
-      this.beams[i]!.position.set(o.elemX[i]!, 0, o.elemDz[i]!);
-      this.beams[i]!.scale.set(radius * 0.9, 0.9, radius * 0.9);
     }
   }
 
-  update(o: Obstacle, z: number, time: number): void {
+  update(o: Obstacle, z: number): void {
     const d = this.cfg.obstacles.spawnDistance;
     for (let i = 0; i < this.count; i++) {
-      const visible = elementVisible(z, o.elemDz[i]!, d);
-      this.stars[i]!.visible = visible;
-      this.beams[i]!.visible = visible;
-      this.stars[i]!.rotation.y = time * 2.2 + i;
+      this.stars[i]!.visible = pending(o, i) && elementVisible(z, o.elemDz[i]!, d);
     }
   }
 }
@@ -432,7 +400,6 @@ class PokeCheckView implements ObstacleView {
   readonly kind = 'pokeCheck' as const;
   readonly group = new Group();
   private readonly shaft: Mesh;
-  private readonly shaftRim: Mesh;
   private readonly blade: Mesh;
   private readonly strip: Mesh;
   private readonly shadow: Mesh;
@@ -447,25 +414,23 @@ class PokeCheckView implements ObstacleView {
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
     this.strip = mesh(g.floorPlane, m.gapStrip, 3);
     this.shaft = mesh(g.box, m.stick);
-    this.shaftRim = mesh(g.box, m.stickRim, 1);
     this.blade = mesh(g.box, m.stick);
-    this.group.add(this.shadow, this.strip, this.shaft, this.shaftRim, this.blade);
+    this.group.add(this.shadow, this.strip, this.shaft, this.blade);
   }
 
   bind(o: Obstacle): void {
     this.len = o.x1 - o.x0;
     const t = 0.035;
     this.shaft.scale.set(this.len, t, t);
-    this.shaftRim.scale.set(this.len + RIM, t + RIM, t + RIM);
     this.blade.scale.set(0.3, 0.045, 0.09);
     this.shadow.scale.set(this.len * 1.05, 1, 0.22);
   }
 
   update(o: Obstacle, z: number): void {
+    this.group.visible = pending(o, 0);
     const cx = pokeCheckCenter(o, z);
     const half = this.len / 2;
     this.shaft.position.set(cx, 0.02, 0);
-    this.shaftRim.position.copy(this.shaft.position);
     // Čepeľ vpredu v smere presunu (na strane opačnej ako konečná medzera).
     this.blade.position.set(cx - o.side * (half - 0.15), 0.025, 0.06);
     this.shadow.position.set(cx, 0.006, 0);
@@ -481,11 +446,16 @@ class PokeCheckView implements ObstacleView {
 interface Slot {
   id: number;
   view: ObstacleView | null;
+  /** Obídený obranca: prekážka je ešte aktívna, ale už sa nezobrazuje. */
+  dismissed: boolean;
 }
 
 interface Fading {
   view: ObstacleView;
   time: number;
+  duration: number;
+  /** shrink = zásah (zmenší sa celá), sink = obídený obranca (zosunie sa do podlahy). */
+  mode: 'shrink' | 'sink';
 }
 
 export class ObstacleViews {
@@ -517,7 +487,7 @@ export class ObstacleViews {
       }
       this.free.set(kind, list);
     }
-    for (let i = 0; i < MAX_OBSTACLES; i++) this.slots.push({ id: 0, view: null });
+    for (let i = 0; i < MAX_OBSTACLES; i++) this.slots.push({ id: 0, view: null, dismissed: false });
   }
 
   /** Synchronizuje meshe s prekážkami simulácie; alpha = interpolácia medzi krokmi. */
@@ -529,9 +499,13 @@ export class ObstacleViews {
       const slot = this.slots[i]!;
       if (!o.active) {
         if (slot.view) this.release(slot);
+        slot.id = 0;
+        slot.dismissed = false;
         continue;
       }
+      if (slot.dismissed && slot.id === o.id) continue;
       if (slot.view === null || slot.id !== o.id) {
+        slot.dismissed = false;
         if (slot.view) this.release(slot);
         const view = this.free.get(o.kind)!.pop();
         if (!view) continue; // pool vyčerpaný: prekážka sa nezobrazí (nemalo by nastať)
@@ -552,16 +526,30 @@ export class ObstacleViews {
   fadeOut(id: number): void {
     for (const slot of this.slots) {
       if (slot.id !== id || !slot.view) continue;
-      this.fading.push({ view: slot.view, time: FADE_TIME });
+      this.fading.push({ view: slot.view, time: FADE_TIME, duration: FADE_TIME, mode: 'shrink' });
       slot.view = null;
       slot.id = 0;
       return;
     }
   }
 
+  /** Obídený obranca: zosunie sa do podlahy a už sa neukáže (prekážka ešte chvíľu žije v simulácii). */
+  passOut(id: number): void {
+    for (const slot of this.slots) {
+      if (slot.id !== id || !slot.view) continue;
+      this.fading.push({ view: slot.view, time: PASS_TIME, duration: PASS_TIME, mode: 'sink' });
+      slot.view = null;
+      slot.dismissed = true;
+      return;
+    }
+  }
+
   /** Nová hra: všetko skryť. */
   clear(): void {
-    for (const slot of this.slots) if (slot.view) this.release(slot);
+    for (const slot of this.slots) {
+      if (slot.view) this.release(slot);
+      slot.dismissed = false;
+    }
     for (const f of this.fading) this.recycle(f.view);
     this.fading.length = 0;
   }
@@ -573,8 +561,11 @@ export class ObstacleViews {
       if (f.time <= 0) {
         this.recycle(f.view);
         this.fading.splice(i, 1);
+      } else if (f.mode === 'sink') {
+        const k = f.time / f.duration;
+        f.view.group.scale.set(1, k * k, 1);
       } else {
-        f.view.group.scale.setScalar(f.time / FADE_TIME);
+        f.view.group.scale.setScalar(f.time / f.duration);
       }
     }
   }

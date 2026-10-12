@@ -8,6 +8,11 @@ import { sweptHeadHit } from './collision';
 import { intervalAt, levelAt, speedAt } from './difficulty';
 import type { EventQueue } from './events';
 import {
+  ELEM_HIT,
+  ELEM_MISS,
+  ELEM_PENDING,
+  ELEM_UNKNOWN,
+  MAX_ELEMENTS,
   MAX_OBSTACLES,
   Obstacle,
   makeConeGate,
@@ -19,11 +24,15 @@ import {
   makeSlalom,
   makeStars,
   makeWideDangle,
+  puckPassesElement,
 } from './obstacles';
 import { comboMultiplier } from './scoring';
 import type { Difficulty } from './settings';
 import { Spawner, type WaveSpec } from './spawner';
-import type { Vec3 } from './types';
+import type { PuckSample, Vec3 } from './types';
+
+/** Bez kamery: puk sa nepozná. */
+const NO_PUCK: PuckSample = { valid: false, x: 0, z: 0, age: 0 };
 
 /** Stav simulácie ako obyčajný objekt (testy pauzy a pokračovania). */
 export interface SimSnapshot {
@@ -38,6 +47,8 @@ export interface SimSnapshot {
   maxCombo: number;
   bodyPassed: number;
   floorPassed: number;
+  floorHits: number;
+  floorMisses: number;
   hits: number;
   rngState: number;
   obstacles: { id: number; kind: string; z: number; prevZ: number; resolved: boolean; hit: boolean }[];
@@ -61,6 +72,9 @@ export class GameplaySim {
   maxCombo = 0;
   bodyPassed = 0;
   floorPassed = 0;
+  /** Prvky na zemi, ktorými puk prešiel / ktoré minul (len keď puk vidí kamera). */
+  floorHits = 0;
+  floorMisses = 0;
   hits = 0;
 
   eyeHeight: number;
@@ -95,13 +109,18 @@ export class GameplaySim {
     this.maxCombo = 0;
     this.bodyPassed = 0;
     this.floorPassed = 0;
+    this.floorHits = 0;
+    this.floorMisses = 0;
     this.hits = 0;
     this.waveCount = 0;
     this.spawner.reset(seed);
   }
 
-  /** Jeden fixný krok. h0 → h1 je pohyb stredu hlavy počas kroku (herný priestor). */
-  step(dt: number, h0: Vec3, h1: Vec3): void {
+  /**
+   * Jeden fixný krok. h0 → h1 je pohyb stredu hlavy počas kroku (herný priestor), puck je odhad puku
+   * z kamery (neplatný = prvky na zemi sa neposudzujú).
+   */
+  step(dt: number, h0: Vec3, h1: Vec3, puck: PuckSample = NO_PUCK): void {
     const cfg = this.cfg;
     this.time += dt;
     this.level = levelAt(this.time, this.difficulty, cfg.difficulty);
@@ -117,6 +136,7 @@ export class GameplaySim {
       if (!o.active) continue;
       o.prevZ = o.z;
       o.z += move;
+      if (!o.body && o.judged < o.elemCount) this.judgeFloor(o, ballZ, puck);
       if (!o.resolved) {
         if (o.body) {
           if (sweptHeadHit(o, h0, h1, radius)) {
@@ -126,11 +146,14 @@ export class GameplaySim {
           }
           if (o.z - o.halfDepth > h1.z + radius) this.onBodyPassed(o);
         } else if (o.z - o.length - o.halfDepth > ballZ) {
-          // Prekážky na zemi sa nevyhodnocujú, len sa počíta, koľko ich prešlo plochou
-          // (vzor sa počíta raz, keď plochou prejde jeho posledný prvok).
+          // Vzor sa počíta raz, keď plochou prejde jeho posledný prvok (n = posúdené prvky).
           o.resolved = true;
           this.floorPassed++;
-          this.events.push('passFloor', o.kind, o.id);
+          let judged = 0;
+          for (let k = 0; k < o.elemCount; k++) {
+            if (o.elemResult[k] === ELEM_HIT || o.elemResult[k] === ELEM_MISS) judged++;
+          }
+          this.events.push('passFloor', o.kind, judged);
         }
       }
       if (o.z - o.length - o.halfDepth > despawnZ) o.active = false;
@@ -164,6 +187,8 @@ export class GameplaySim {
       maxCombo: this.maxCombo,
       bodyPassed: this.bodyPassed,
       floorPassed: this.floorPassed,
+      floorHits: this.floorHits,
+      floorMisses: this.floorMisses,
       hits: this.hits,
       rngState: this.spawner.rngState,
       obstacles: this.obstacles
@@ -236,6 +261,52 @@ export class GameplaySim {
     return null;
   }
 
+  /**
+   * Posúdenie prvkov vzoru pukom. Kamera vidí puk s oneskorením (puck.age): prvok sa posúdi, keď
+   * v čase zachytenia puku už prešiel jeho čiarou, a podľa polohy puku v tom čase. Bez puku (alebo
+   * keď ho kamera uvidela až neskoro) prvok len prejde stredom plochy ako neposúdený.
+   */
+  private judgeFloor(o: Obstacle, ballZ: number, puck: PuckSample): void {
+    const p = this.cfg.puck;
+    const usable = puck.valid && puck.age <= p.maxAge;
+    for (let i = 0; i < o.elemCount; i++) {
+      if (o.elemResult[i] !== ELEM_PENDING) continue;
+      const z = o.z + o.elemDz[i]!;
+      const code = o.id * MAX_ELEMENTS + i;
+      if (usable) {
+        const past = z - this.speed * puck.age - puck.z;
+        if (past < 0) continue;
+        if (past <= p.maxLateJudge) {
+          o.judged++;
+          if (puckPassesElement(o, i, puck.x, this.cfg)) {
+            o.elemResult[i] = ELEM_HIT;
+            this.onFloorHit(o, code);
+          } else {
+            o.elemResult[i] = ELEM_MISS;
+            this.floorMisses++;
+            this.combo = 0;
+            this.events.push('floorMiss', o.kind, code);
+          }
+          continue;
+        }
+      }
+      if (z > ballZ) {
+        o.elemResult[i] = ELEM_UNKNOWN;
+        o.judged++;
+        this.events.push('floorPass', o.kind, code);
+      }
+    }
+  }
+
+  private onFloorHit(o: Obstacle, code: number): void {
+    const multiplier = comboMultiplier(this.combo, this.cfg.rules);
+    this.score += this.cfg.puck.scorePerHit * multiplier;
+    this.combo++;
+    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+    this.floorHits++;
+    this.events.push('floorHit', o.kind, code);
+  }
+
   private onBodyPassed(o: Obstacle): void {
     o.resolved = true;
     const multiplier = comboMultiplier(this.combo, this.cfg.rules);
@@ -243,7 +314,7 @@ export class GameplaySim {
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.bodyPassed++;
-    this.events.push('passBody', o.kind, multiplier);
+    this.events.push('passBody', o.kind, o.id);
   }
 
   private onHit(o: Obstacle): void {

@@ -30,7 +30,8 @@ export const CONFIG = {
   },
 
   playArea: {
-    width: 2.0,
+    /** Šírka plochy; prekážky na zemi siahajú najviac po jej okraj (1,5 m: menej naťahovania). */
+    width: 1.5,
     depth: 1.0,
     /** Vzdialenosť stredu plochy pred hráčom. */
     centerDistance: 0.55,
@@ -107,13 +108,13 @@ export const CONFIG = {
     /** Nízka tyč na zemi: zakryje 55–65 % šírky plochy z jednej strany. */
     lowBar: { coverageMin: 0.55, coverageMax: 0.65, height: 0.06, depth: 0.06 },
     /** Brána z dvoch kužeľov. */
-    coneGate: { gapWidth: 0.4, gapMaxOffset: 0.75, coneRadius: 0.08, coneHeight: 0.3 },
+    coneGate: { gapWidth: 0.4, gapMaxOffset: 0.55, coneRadius: 0.08, coneHeight: 0.3 },
     /** Slalom: kužele v rade, puk ich obchádza striedavo zľava a sprava (passOffset od osi). */
-    slalom: { minCones: 3, maxCones: 5, centerMaxOffset: 0.4, passOffset: 0.28, coneTime: 0.75 },
+    slalom: { minCones: 3, maxCones: 5, centerMaxOffset: 0.28, passOffset: 0.24, coneTime: 0.75 },
     /** Hviezdy na zemi, cez ktoré prevedieš puk; starTime = čas medzi hviezdami. */
-    stars: { minStars: 2, maxStars: 4, maxOffset: 0.8, starTime: 0.6, radius: 0.13 },
+    stars: { minStars: 2, maxStars: 4, maxOffset: 0.58, starTime: 0.6, radius: 0.13 },
     /** Široké miesanie: brána úplne na jednej strane a o gateTime neskôr na druhej. */
-    wideDangle: { offset: 0.72, gapWidth: 0.38, gateTime: 1.0 },
+    wideDangle: { offset: 0.52, gapWidth: 0.38, gateTime: 1.0 },
     /**
      * Pohyblivá hokejka obrancu (poke check): leží na zemi, zakrýva coverage šírky plochy a počas
      * sweepTime sa presunie na druhú stranu. Presun skončí settleTime pred príchodom k puku.
@@ -190,8 +191,27 @@ export const CONFIG = {
     comboDoubleGapTolerance: 0.35,
     /** Od tejto úrovne nie sú pri zohýbaní krajné medzery na zemi. */
     highSpeedLevel: 0.7,
-    highSpeedMaxFloorOffset: 0.35,
+    highSpeedMaxFloorOffset: 0.3,
     maxAttempts: 8,
+  },
+
+  /**
+   * Vyhodnotenie puku z kamery: prvok vzoru na zemi sa posúdi, keď prejde čiarou puku.
+   * Bez kamery sa prvky neposudzujú (len zmiznú po prejdení plochou).
+   */
+  puck: {
+    /** Rezerva pri bráne a medzere (m): stred puku smie byť o toľko za okrajom medzery. */
+    gateTolerance: 0.04,
+    /** Hviezda: stred puku najviac radius + toto od stredu hviezdy. */
+    starTolerance: 0.07,
+    /** Slalom: stred puku aspoň toľko na správnej strane osi kužeľa. */
+    slalomMargin: 0.03,
+    /** Starší odhad polohy puku sa nepoužije (s). */
+    maxAge: 0.4,
+    /** Ak puk začal byť vidieť až neskoro, prvok, ktorý čiaru puku prešiel pred viac ako toľko metrami, ostane neposúdený. */
+    maxLateJudge: 0.5,
+    /** Body za prvok, ktorým puk prešiel (krát combo násobiteľ). */
+    scorePerHit: 25,
   },
 
   hud: {

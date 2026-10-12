@@ -1,18 +1,19 @@
 /**
- * Zobrazenie testu kamery v AR:
- * - krúžok na podlahe tam, kde je podľa kamery puk (zelený čerstvý, žltý starší),
- * - obrys toho, čo kamera práve vidí na podlahe,
- * - panel vľavo vpredu s náhľadom kamery (pixely farby puku fialovo) a číslami.
+ * Zobrazenie sledovania puku v AR:
+ * - jemná žiara na podlahe okolo puku (počas hry slabá, pri kalibrácii výrazná),
+ * - pri kalibrácii (Nastavenia → Kalibrácia puku) obrys toho, čo kamera vidí na podlahe,
+ *   a panel s náhľadom kamery (pixely farby puku fialovo) a stavom kalibrácie.
  */
 import {
   BufferAttribute,
   BufferGeometry,
-  DoubleSide,
+  CanvasTexture,
   LineBasicMaterial,
   LineLoop,
   Mesh,
   MeshBasicMaterial,
-  RingGeometry,
+  PlaneGeometry,
+  SRGBColorSpace,
   type Group,
   type Scene,
 } from 'three';
@@ -20,27 +21,46 @@ import type { Config } from '../config';
 import type { FrameStats } from './frameStats';
 import type { Game } from '../core/game';
 import type { HeadSample } from '../core/types';
-import { COLORS, CanvasPanel, FONT_FAMILY, roundedRect } from '../ui/canvasPanel';
+import { COLORS, CanvasPanel, FONT_FAMILY, placeOnRect, roundedRect } from '../ui/canvasPanel';
 import type { CameraSource } from './source';
 import type { PuckTracker } from './tracker';
 
 const FOOT_PER_EDGE = 12;
-const RING_RADIUS = 0.06;
-/** Panel: uhlová veľkosť pre rozlíšenie canvasu, skutočná šírka v metroch a poloha v hernom priestore. */
+/** Panel: uhlová veľkosť pre rozlíšenie canvasu (640 × 700); poloha a veľkosť sú z rozloženia (puckInfo). */
 const PANEL_DEG = { w: 16, h: 17.5 };
-const PANEL_WIDTH = 0.8;
-const PANEL_POS = { x: -1.25, dy: -0.35, z: -1.35 };
 /** Panel sa prekreslí najviac takto často (textúra 640 × 700 sa nahráva do GPU). */
 const REDRAW_INTERVAL = 0.2;
-const GREEN = 0x2bff88;
-const YELLOW = 0xffd84d;
+const GREEN = 0x3ddc84;
+const YELLOW = 0xf0c94a;
+/** Žiara okolo puku: priemer voči polomeru puku a priehľadnosť počas hry a pri kalibrácii. */
+const GLOW_SCALE = 3.2;
+const GLOW_OPACITY = { play: 0.22, calibration: 0.9 };
 
 function num(value: number, decimals = 0): string {
   return value.toFixed(decimals).replace('.', ',').replace('-', '−');
 }
 
+/** Mäkký krúžok: priehľadný stred, jemný pás, priehľadný okraj. */
+function glowTexture(): CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0)');
+  g.addColorStop(0.68, 'rgba(255,255,255,1)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
 export class TrackerView {
-  readonly ring: Mesh<RingGeometry, MeshBasicMaterial>;
+  readonly ring: Mesh<PlaneGeometry, MeshBasicMaterial>;
   readonly footprint: LineLoop<BufferGeometry, LineBasicMaterial>;
   readonly panel = new CanvasPanel(PANEL_DEG.w, PANEL_DEG.h);
   private readonly footXZ = new Float32Array(FOOT_PER_EDGE * 8);
@@ -55,8 +75,15 @@ export class TrackerView {
     playRoot: Group,
   ) {
     this.ring = new Mesh(
-      new RingGeometry(RING_RADIUS - 0.007, RING_RADIUS + 0.007, 48).rotateX(-Math.PI / 2),
-      new MeshBasicMaterial({ color: GREEN, transparent: true, opacity: 0.95, depthWrite: false, side: DoubleSide }),
+      new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new MeshBasicMaterial({
+        color: GREEN,
+        map: glowTexture(),
+        transparent: true,
+        opacity: GLOW_OPACITY.play,
+        depthWrite: false,
+        toneMapped: false,
+      }),
     );
     this.ring.renderOrder = 30;
     this.ring.visible = false;
@@ -95,18 +122,22 @@ export class TrackerView {
     xr: FrameStats,
   ): void {
     const running = source.stream !== null;
+    // Kalibrácia puku: podpanel v nastaveniach, na jeho mieste je panel kamery.
+    const rect = game.sub === 'puck' ? game.layout.texts.find((t) => t.id === 'puckInfo') : undefined;
+    const calibrating = running && rect !== undefined;
     const p = tracker.puck;
     const age = nowMs - p.received;
     const ringCfg = this.cfg.camera.ring;
     this.ring.visible = running && p.valid && age < ringCfg.hideMs;
     if (this.ring.visible) {
       this.ring.position.set(p.x, 0.004, p.z);
-      const s = (tracker.targetRadius + 0.02) / RING_RADIUS;
-      this.ring.scale.set(s, 1, s);
-      this.ring.material.color.setHex(age < ringCfg.freshMs ? GREEN : YELLOW);
+      this.ring.scale.setScalar(tracker.targetRadius * 2 * GLOW_SCALE);
+      const m = this.ring.material;
+      m.opacity = calibrating ? GLOW_OPACITY.calibration : GLOW_OPACITY.play;
+      m.color.setHex(!calibrating || age < ringCfg.freshMs ? GREEN : YELLOW);
     }
 
-    this.footprint.visible = running && head.valid && tracker.stats.frames > 0;
+    this.footprint.visible = calibrating && head.valid && tracker.stats.frames > 0;
     if (this.footprint.visible) {
       const n = tracker.model.footprint(head, 0.003, 6, FOOT_PER_EDGE, this.footXZ);
       const pos = this.footPos.array as Float32Array;
@@ -118,13 +149,11 @@ export class TrackerView {
       this.footPos.needsUpdate = true;
     }
 
-    // Počas hry je panel skrytý a neprekresľuje sa: nahrávanie textúry 640 × 700 do GPU by hru trhalo.
+    // Panel je len pri kalibrácii: inak sa neprekresľuje (nahrávanie textúry do GPU by hru trhalo).
     const mesh = this.panel.mesh;
-    mesh.visible = running && game.state !== 'PLAYING' && game.state !== 'COUNTDOWN';
-    if (!mesh.visible) return;
-    mesh.position.set(PANEL_POS.x, game.eyeHeight + PANEL_POS.dy, PANEL_POS.z);
-    mesh.rotation.set(0, Math.atan2(-PANEL_POS.x, -PANEL_POS.z), 0);
-    mesh.scale.set(PANEL_WIDTH, (PANEL_WIDTH * this.panel.height) / this.panel.width, 1);
+    mesh.visible = calibrating;
+    if (!rect || !calibrating) return;
+    placeOnRect(mesh, rect, 0.01);
     this.textTimer += dt;
     if (this.textTimer < REDRAW_INTERVAL || (!this.dirty && this.textTimer < 2 * REDRAW_INTERVAL)) return;
     this.textTimer = 0;

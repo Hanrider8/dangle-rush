@@ -20,6 +20,7 @@ export const STRINGS = {
     resume: 'Pokračovať',
     newGame: 'Nová hra',
     back: 'Späť',
+    done: 'Hotovo',
   },
   setup: {
     title: 'Kalibrácia výšky',
@@ -61,6 +62,8 @@ export const STRINGS = {
     countdown: 'Odpočet',
     calibrate: 'Nová kalibrácia',
     calibrateValue: 'výšky hlavy',
+    puck: 'Kalibrácia puku',
+    puckValue: 'kamera',
     debug: 'Debug',
     on: 'zap',
     off: 'vyp',
