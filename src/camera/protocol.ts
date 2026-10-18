@@ -1,12 +1,14 @@
 /** Správy medzi hlavným vláknom a workermi testu kamery (`?cam=1`). */
 import type { CalibConfig, CalibResult } from '../tracking/calibration';
 import type { CamParams } from '../tracking/cameraModel';
+import type { LearnOptions, LearnResult } from '../tracking/colorLearn';
 import type { ColorProfile, DetectorLimits } from '../tracking/detector';
 
 export interface FrameWorkerConfig {
   type: 'config';
   profile: ColorProfile;
   limits: DetectorLimits;
+  learn: LearnOptions;
   procWidth: number;
   previewIntervalMs: number;
 }
@@ -17,6 +19,8 @@ export type ToFrameWorker =
   | { type: 'stream'; readable: ReadableStream<VideoFrame> }
   /** Záložná cesta: zmenšená snímka z <video> a rozmery kamery. */
   | { type: 'bitmap'; bitmap: ImageBitmap; arrival: number; srcWidth: number; srcHeight: number }
+  /** Naučiť farbu puku z najbližšej snímky; bod ťuknutia v náhľade (0–1). */
+  | { type: 'learn'; x: number; y: number }
   | { type: 'stop' };
 
 /** Výsledok jednej snímky. Pixely sú v rozlíšení kamery. */
@@ -58,6 +62,7 @@ export type FromFrameWorker =
   | DetectionMessage
   | FrameInfoMessage
   | { type: 'preview'; bitmap: ImageBitmap }
+  | { type: 'learned'; result: LearnResult }
   | { type: 'error'; message: string }
   | { type: 'ended' };
 

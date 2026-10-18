@@ -60,6 +60,11 @@ export class CameraSource {
     this.post(cfg);
   }
 
+  /** Naučí farbu puku z najbližšej snímky; (x, y) je bod ťuknutia v náhľade (0–1). Výsledok príde ako 'learned'. */
+  learn(x: number, y: number): void {
+    this.post({ type: 'learn', x, y });
+  }
+
   /** Vypýta povolenie (zobrazí výzvu) a načíta zoznam kamier; názvy sú známe až po povolení. */
   async requestPermission(): Promise<void> {
     // facingMode „environment“ smeruje na kamery headsetu (facing back), nie na kameru avatara.

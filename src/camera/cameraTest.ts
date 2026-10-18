@@ -2,16 +2,18 @@
  * Test sledovania puku kamerou headsetu (`?cam=1`). Načíta sa dynamicky len v tomto režime.
  *
  * Úvodná stránka: výber cieľa, rozlíšenia a kamery, povolenie, náhľad a správa pre vývoj.
+ * Ťuknutím na puk v náhľade sa naučí jeho farba (pamätá sa pre každý cieľ zvlášť).
  * V AR: krúžok na podlahe, obrys záberu kamery, panel s náhľadom a samokalibrácia.
  * Hra puk zatiaľ nevyhodnocuje.
  */
 import type { App } from '../app';
 import { CONFIG } from '../config';
 import type { KeyValueStorage } from '../core/settings';
+import type { ColorProfile } from '../tracking/detector';
 import { FrameStats } from './frameStats';
 import { buildReport } from './report';
 import { CameraSource } from './source';
-import { PuckTracker } from './tracker';
+import { PuckTracker, type TargetKind } from './tracker';
 import { TrackerView } from './view';
 
 export interface CameraTestOptions {
@@ -29,6 +31,21 @@ function el<T extends HTMLElement>(id: string): T {
   const e = document.getElementById(id);
   if (!e) throw new Error(`Chýba prvok #${id}`);
   return e as T;
+}
+
+function num(value: number, decimals = 0): string {
+  return value.toFixed(decimals).replace('.', ',');
+}
+
+/** Farba cieľa pre hráča a správu: odtieň, najmenšia sýtosť a jas. */
+function describeProfile(p: ColorProfile): string {
+  return `odtieň ${num(p.hueMin)}–${num(p.hueMax)}°, sýtosť od ${num(p.satMin, 2)}, jas od ${num(p.valMin, 2)}`;
+}
+
+function isProfile(p: unknown): p is ColorProfile {
+  if (typeof p !== 'object' || p === null) return false;
+  const c = p as Record<string, unknown>;
+  return ['hueMin', 'hueMax', 'satMin', 'valMin'].every((k) => typeof c[k] === 'number' && Number.isFinite(c[k]));
 }
 
 function describeError(err: unknown): string {
@@ -58,6 +75,8 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   const reportPre = el<HTMLPreElement>('cam-report');
   const copyBtn = el<HTMLButtonElement>('cam-copy');
   const resetBtn = el<HTMLButtonElement>('cam-reset');
+  const colorNote = el<HTMLParagraphElement>('cam-color');
+  const colorResetBtn = el<HTMLButtonElement>('cam-color-reset');
   const details = el<HTMLDetailsElement>('cam-details');
   el<HTMLElement>('cam').hidden = false;
   details.hidden = false;
@@ -76,17 +95,21 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   let wasCalibrating = false;
   /** Plynulosť XR snímok: celkovo, počas hry a bez bežiacej kamery (na porovnanie). */
   const xr = { all: new FrameStats(), playing: new FrameStats(), noCamera: new FrameStats(), targetHz: 0 };
+  /** Farby naučené ťuknutím na puk v náhľade (pamätajú sa); inak predvolená farba cieľa. */
+  const learned: Partial<Record<TargetKind, ColorProfile>> = {};
 
   try {
-    const prefs = JSON.parse(storage.getItem(PREFS_KEY) ?? '{}') as { target?: string; res?: string };
+    const prefs = JSON.parse(storage.getItem(PREFS_KEY) ?? '{}') as { target?: string; res?: string; colors?: unknown };
     if (prefs.target === 'green' || prefs.target === 'orange') targetSel.value = prefs.target;
     if (prefs.res && [...resSel.options].some((o) => o.value === prefs.res)) resSel.value = prefs.res;
+    const colors = (prefs.colors ?? {}) as Record<string, unknown>;
+    for (const t of ['green', 'orange'] as const) if (isProfile(colors[t])) learned[t] = colors[t];
   } catch {
     // poškodené nastavenia testu: predvolené hodnoty
   }
   const savePrefs = () => {
     try {
-      storage.setItem(PREFS_KEY, JSON.stringify({ target: targetSel.value, res: resSel.value }));
+      storage.setItem(PREFS_KEY, JSON.stringify({ target: targetSel.value, res: resSel.value, colors: learned }));
     } catch {
       // nevadí
     }
@@ -97,15 +120,22 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
     status.classList.toggle('error', error);
   };
 
+  const profile = () => learned[tracker.target] ?? cfg.targets[tracker.target];
+  const describeColor = () => `${learned[tracker.target] ? 'naučená' : 'predvolená'} (${describeProfile(profile())})`;
+
   const configure = () => {
     tracker.target = targetSel.value === 'orange' ? 'orange' : 'green';
+    const p = profile();
     source.configure({
       type: 'config',
-      profile: cfg.targets[tracker.target],
+      profile: { hueMin: p.hueMin, hueMax: p.hueMax, satMin: p.satMin, valMin: p.valMin },
       limits: cfg.detector,
+      learn: cfg.learn,
       procWidth: cfg.procWidth,
       previewIntervalMs: cfg.previewIntervalMs,
     });
+    colorNote.textContent = `Farba: ${describeColor()}.`;
+    colorResetBtn.hidden = !learned[tracker.target];
   };
   configure();
 
@@ -127,6 +157,24 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
       case 'info':
         tracker.frameInfo = msg;
         break;
+      case 'learned': {
+        const r = msg.result;
+        if (!r.ok) {
+          setStatus(`Farbu sa nepodarilo naučiť. ${r.reason}`, true);
+          source.note(`naučenie farby zlyhalo: ${r.reason}`);
+          break;
+        }
+        learned[tracker.target] = r.profile;
+        savePrefs();
+        configure();
+        setStatus(
+          `Farba puku je naučená (${describeProfile(r.profile)}). Puk má byť v náhľade fialový v žltom krúžku.`,
+        );
+        source.note(
+          `naučená farba: ${describeProfile(r.profile)} · puk ${r.area} px, pokrytie ${num(r.coverage * 100)} %, mimo puku ${r.background} px`,
+        );
+        break;
+      }
       case 'error':
         source.note(msg.message);
         break;
@@ -210,6 +258,7 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
       restarts,
       xr,
       frameRate: app.frameRate.describe(),
+      color: describeColor(),
       version: `build ${__BUILD_TIME__}`,
     });
 
@@ -233,6 +282,25 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
     window.setTimeout(() => {
       copyBtn.textContent = 'Kopírovať správu';
     }, 2500);
+  });
+
+  // Ťuknutie na puk v náhľade: worker sa z najbližšej snímky naučí jeho farbu.
+  canvas.addEventListener('click', (e) => {
+    if (!source.stream) {
+      setStatus('Najprv povoľ kameru, potom ťukni na puk v náhľade.', true);
+      return;
+    }
+    const r = canvas.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    source.learn((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+    setStatus('Učím sa farbu puku…');
+  });
+
+  colorResetBtn.addEventListener('click', () => {
+    delete learned[tracker.target];
+    savePrefs();
+    configure();
+    setStatus('Používa sa predvolená farba puku.');
   });
 
   resetBtn.addEventListener('click', () => {

@@ -8,7 +8,7 @@ import { drawDisc, drawRect, poseAt, quatYPR, woodImage } from './trackingHelper
 
 const C = CONFIG.camera;
 const GREEN: [number, number, number] = [70, 205, 80];
-const ORANGE: [number, number, number] = [245, 120, 30];
+const ORANGE: [number, number, number] = [245, 105, 40];
 
 describe('história pózy', () => {
   it('interpoluje polohu aj orientáciu medzi snímkami', () => {

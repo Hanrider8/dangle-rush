@@ -249,13 +249,35 @@ export const CONFIG = {
     /** Ako často worker pošle náhľad kamery (ms). */
     previewIntervalMs: 120,
     /**
-     * Farba cieľa: odtieň v stupňoch (hueMin–hueMax), najmenšia sýtosť a jas (0–1).
-     * Svetlé drevo má odtieň ~25–45° a nízku sýtosť, preto má oranžová prísnejšiu sýtosť.
+     * Predvolená farba cieľa: odtieň v stupňoch (hueMin–hueMax; hueMin > hueMax = cez 0°), najmenšia
+     * sýtosť a jas (0–1). Hráč si farbu môže naučiť ťuknutím na puk v náhľade (camera.learn).
+     * Svetlé drevo má odtieň ~25–45° a sýtosť do ~0,25 (medové drevo až ~0,45), tieň loptičky na ňom
+     * ~20–28° a ~0,2–0,3. Oranžová loptička (aj bledšia lososová, odtieň ~10–20°, sýtosť ~0,4–0,7) sa od
+     * dreva odlíši hlavne odtieňom. Žltšiu oranžovú (odtieň nad 24°) treba naučiť.
      * centerHeight je výška stredu cieľa nad podlahou, radius jeho polomer (m).
      */
     targets: {
       green: { hueMin: 70, hueMax: 170, satMin: 0.35, valMin: 0.16, centerHeight: 0.015, radius: 0.038 },
-      orange: { hueMin: 0, hueMax: 36, satMin: 0.62, valMin: 0.3, centerHeight: 0.034, radius: 0.034 },
+      orange: { hueMin: 345, hueMax: 24, satMin: 0.3, valMin: 0.3, centerHeight: 0.034, radius: 0.034 },
+    },
+    /** Naučenie farby ťuknutím na puk v náhľade kamery (tracking/colorLearn.ts). */
+    learn: {
+      /** Polomer hľadania najfarebnejšieho pixelu okolo ťuknutia (podiel šírky obrazu). */
+      searchRadius: 0.04,
+      /** Zárodok: chróma (max − min) aspoň toľko a aspoň o toľko viac ako medián obrazu (podlaha má ~0,1). */
+      minChroma: 0.12,
+      minChromaAboveMedian: 0.08,
+      /** Rast oblasti puku: rozdiel odtieňa od zárodku (°), sýtosť a chróma aspoň takáto časť zárodku. */
+      growHueDeg: 15,
+      growSat: 0.5,
+      growChroma: 0.35,
+      /** Rezerva odtieňa (°) a najmenšia polovičná šírka rozsahu odtieňa. */
+      hueMarginDeg: 6,
+      minHueHalfDeg: 10,
+      /** Najviac pixelov ďalej od puku s naučenou farbou (podiel obrazu). */
+      maxBackground: 0.002,
+      /** Najmenšia časť puku, ktorú musí naučená farba pokryť. */
+      minCoverage: 0.5,
     },
     detector: {
       /** Najmenšia a najväčšia plocha škvrny (pixely zmenšeného obrazu, podiel obrazu). */

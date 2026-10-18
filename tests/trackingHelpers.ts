@@ -144,3 +144,61 @@ export function drawRect(
     }
   }
 }
+
+/**
+ * Loptička zhora osvetlená inak ako zdola: farba prechádza od `top` (horný okraj) po `bottom`
+ * (dolný okraj), okraj je vyhladený (podvzorkovanie 4 × 4).
+ */
+export function drawShadedBall(
+  img: Uint8ClampedArray,
+  w: number,
+  h: number,
+  cx: number,
+  cy: number,
+  r: number,
+  top: [number, number, number],
+  bottom: [number, number, number],
+): void {
+  for (let y = Math.max(0, Math.floor(cy - r - 1)); y < Math.min(h, Math.ceil(cy + r + 1)); y++) {
+    const t = Math.min(1, Math.max(0, (y + 0.5 - (cy - r)) / (2 * r)));
+    const rgb = [0, 1, 2].map((c) => top[c]! * (1 - t) + bottom[c]! * t) as [number, number, number];
+    for (let x = Math.max(0, Math.floor(cx - r - 1)); x < Math.min(w, Math.ceil(cx + r + 1)); x++) {
+      let cover = 0;
+      for (let sy = 0; sy < 4; sy++) {
+        for (let sx = 0; sx < 4; sx++) {
+          if ((x + (sx + 0.5) / 4 - cx) ** 2 + (y + (sy + 0.5) / 4 - cy) ** 2 <= r * r) cover++;
+        }
+      }
+      if (cover === 0) continue;
+      const a = cover / 16;
+      const k = 4 * (y * w + x);
+      for (let c = 0; c < 3; c++) img[k + c] = img[k + c]! * (1 - a) + rgb[c]! * a;
+    }
+  }
+}
+
+/** Zníži sýtosť celého obrazu (farby k šedej s rovnakým jasom max): napodobní bledšiu kameru. */
+export function desaturate(img: Uint8ClampedArray, factor: number): void {
+  for (let k = 0; k < img.length; k += 4) {
+    const max = Math.max(img[k]!, img[k + 1]!, img[k + 2]!);
+    for (let c = 0; c < 3; c++) img[k + c] = max - (max - img[k + c]!) * factor;
+  }
+}
+
+/** Svetlosivá podlaha s béžovým nádychom (laminát), žilky a šum. */
+export function greyFloorImage(w: number, h: number, seed = 1): Uint8ClampedArray {
+  const rng = new Rng(seed);
+  const img = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const grain = 8 * Math.sin(x * 0.3 + Math.sin(y * 0.04) * 2) + (x % 41 < 1 ? -40 : 0);
+      const k = 4 * (y * w + x);
+      const n = () => (rng.next() - 0.5) * 12;
+      img[k] = 178 + grain + n();
+      img[k + 1] = 168 + grain + n();
+      img[k + 2] = 155 + grain + n();
+      img[k + 3] = 255;
+    }
+  }
+  return img;
+}

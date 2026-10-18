@@ -1,8 +1,8 @@
 /**
  * Len pre vývoj: virtuálna kamera headsetu pre test `?cam=1&camsim=1` v emulátore IWER.
  *
- * Vykreslí podlahu zo svetlého dreva a zelený biscuit z pohľadu kamery pripevnenej k emulovanej
- * hlave so známymi parametrami (SIM_CAMERA). Póza hlavy sa berie spred SIM_CAMERA.latencyMs,
+ * Vykreslí podlahu zo svetlého dreva a zelený biscuit (s `&camball=orange` lososovo-oranžovú loptičku)
+ * z pohľadu kamery pripevnenej k emulovanej hlave so známymi parametrami (SIM_CAMERA). Póza hlavy sa berie spred SIM_CAMERA.latencyMs,
  * ako pri skutočnej kamere s oneskorením. Obraz ide cez canvas.captureStream() do rovnakého
  * spracovania ako kamera Questu, takže kalibrácia by mala nájsť práve tieto parametre.
  * Biscuit je aj v AR scéne (zastupuje skutočný puk, ktorý by bolo vidieť v passthrough).
@@ -24,6 +24,7 @@ import {
   RepeatWrapping,
   SRGBColorSpace,
   Scene,
+  SphereGeometry,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -73,9 +74,11 @@ function woodTexture(): CanvasTexture {
 
 export function installCameraSim(app: App, device: XRDevice): () => MediaStream {
   const p = SIM_CAMERA;
-  const radius = CONFIG.camera.targets.green.radius;
-  /** Biscuit: valec s priemerom puku, stred vo výške centerHeight. */
-  const height = 2 * CONFIG.camera.targets.green.centerHeight;
+  const orange = new URLSearchParams(location.search).get('camball') === 'orange';
+  const target = CONFIG.camera.targets[orange ? 'orange' : 'green'];
+  const radius = target.radius;
+  /** Biscuit: valec s priemerom puku; loptička: guľa. Stred je vo výške centerHeight. */
+  const height = 2 * target.centerHeight;
   const canvas = document.createElement('canvas');
   canvas.width = p.width;
   canvas.height = p.height;
@@ -91,11 +94,15 @@ export function installCameraSim(app: App, device: XRDevice): () => MediaStream 
   scene.add(sun);
   const floor = new Mesh(new PlaneGeometry(14, 14).rotateX(-Math.PI / 2), new MeshLambertMaterial({ map: woodTexture() }));
   scene.add(floor);
-  const ballGeometry = new CylinderGeometry(radius, radius, height, 32);
-  const ball = new Mesh(ballGeometry, new MeshLambertMaterial({ color: 0x3fd24a, emissive: 0x0f3a12 }));
+  const ballGeometry = orange ? new SphereGeometry(radius, 32, 16) : new CylinderGeometry(radius, radius, height, 32);
+  const ballColor = orange ? 0xf0805c : 0x3fd24a;
+  const ball = new Mesh(
+    ballGeometry,
+    new MeshLambertMaterial({ color: ballColor, emissive: orange ? 0x3a1a10 : 0x0f3a12 }),
+  );
   scene.add(ball);
   // Biscuit v AR scéne: v emulátore zastupuje skutočný puk.
-  const arBall = new Mesh(ballGeometry, new MeshBasicMaterial({ color: 0x3fd24a }));
+  const arBall = new Mesh(ballGeometry, new MeshBasicMaterial({ color: ballColor }));
   app.rig.playRoot.add(arBall);
 
   // Projekcia dierkovej komory s daným f, cx, cy (v NDC ide y nahor, v obraze v nadol).

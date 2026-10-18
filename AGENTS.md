@@ -65,8 +65,10 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty); floorHit/floorMiss/floorPass majú
                 n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky
-src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts)
+src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts,
+                colorLearn.test.ts)
   detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička
+  colorLearn.ts naučenie farby puku ťuknutím v náhľade: zárodok, rast oblasti, profil s najmenej pixelmi mimo puku
   cameraModel.ts dierková komora pripevnená k hlave: pixel ↔ lúč, priesečník s podlahou, záber na podlahe
   calibration.ts samokalibrácia z nehybného puku (Levenberg–Marquardt: f, stred, natočenie, poloha, oneskorenie)
   poseHistory.ts história pózy hlavy (póza v čase zachytenia snímky), timeSync.ts časové značky kamery → čas
@@ -117,6 +119,10 @@ Kľúčové invarianty:
   `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
   takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
   (`TimeSync` + oneskorenie z kalibrácie). Kalibrácia sa ukladá do localStorage podľa názvu kamery a rozlíšenia.
+  Farba cieľa je predvolená z `config.camera.targets`, alebo naučená ťuknutím na puk v náhľade na úvodnej stránke
+  (worker ju zistí z najbližšej snímky, `learnColor`). Naučená farba sa pamätá pre každý cieľ zvlášť
+  (`dangleRush.camTest.v1`, pole `colors`). Na fotke hráčovej lososovej loptičky mala loptička odtieň ~10–20° a
+  sýtosť ~0,4–0,7, tieň pod ňou ~20–28° a sýtosť ~0,25, podlaha (sivý laminát) sýtosť do ~0,2.
   Namerané na Queste 3 (Quest Browser 150): kamery `camera 1/2, facing back` (ľavá/pravá), 1280 × 1280 @ 30 fps,
   I420, f ≈ 862 px, sklon −10,8°, oneskorenie ≈ 44 ms (predvolený odhad v `config.camera.guess`). Panel testu sa
   počas hry skrýva (nahrávanie veľkej CanvasTexture trhalo hru); správa meria plynulosť XR snímok (`FrameStats`).
@@ -171,7 +177,9 @@ Skriptovanie cez `window.__dr`:
 Statické zábery je najlepšie robiť v pauze (`game.autoPause('visibility')`), lebo prekážky stoja.
 
 **Test kamery bez headsetu:** `?cam=1&camsim=1&debug=1` nahradí kameru virtuálnou kamerou (`dev/camSim.ts`, známe
-parametre v `SIM_CAMERA`), ktorá kreslí zelený biscuit na drevenej podlahe z pohľadu emulovanej hlavy. Postup:
+parametre v `SIM_CAMERA`), ktorá kreslí zelený biscuit na drevenej podlahe z pohľadu emulovanej hlavy
+(`&camball=orange` lososovú loptičku; v teste vyber „Oranžová loptička“). Naučenie farby: klik na loptičku
+v `#cam-preview` (pozri sa na ňu, napr. `__dr.look(-9, -55)`), výsledok je v `#cam-status` a v správe. Postup:
 „Povoliť kameru“ → „Spustiť“ → kalibrácia výšky → asi 14 s pozerať okolo biscuitu (`__dr.look` v requestAnimationFrame)
 → `__drCam.tracker.paramsSource === 'kalibrácia'` a `__drCam.tracker.puck.playX/Z` blízko `__dr.camSim.ball`.
 `__drCam.report()` vráti textovú správu. V headless Chromiu (SwiftShader) pred „Spustiť“ zmenši framebuffer

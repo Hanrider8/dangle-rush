@@ -74,7 +74,9 @@
       #cam-enable:disabled { background: #334155; color: #94a3b8; }
       #cam-status { min-height: 1.5em; color: var(--muted); }
       #cam-status.error { color: var(--warn); }
-      #cam-preview { display: block; width: 100%; max-width: 480px; background: #000; border-radius: 10px; }
+      #cam-preview { display: block; width: 100%; max-width: 480px; background: #000; border-radius: 10px; cursor: crosshair; }
+      #cam .color-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 14px; }
+      #cam .color-row .note { margin: 0; flex: 1 1 240px; font-size: 0.9rem; }
       #cam-details .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 10px; }
       .secondary { cursor: pointer; }
       #cam-report {
@@ -105,8 +107,8 @@
       <section id="cam" hidden>
         <h2>Sledovanie puku kamerou</h2>
         <p class="note">
-          Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku. Keď puk prejde hviezdou, bránou
-          alebo okolo kužeľa zo správnej strany, prvok zozelenie, zmizne a zaznie tón.
+          Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku podľa farby. Keď puk prejde hviezdou,
+          bránou alebo okolo kužeľa zo správnej strany, prvok zozelenie, zmizne a zaznie tón.
         </p>
         <div class="grid">
           <label>Čo sledovať
@@ -129,8 +131,14 @@
         <button id="cam-enable" type="button">Povoliť kameru</button>
         <p id="cam-status" role="status"></p>
         <canvas id="cam-preview" width="320" height="240"></canvas>
+        <div class="color-row">
+          <p id="cam-color" class="note"></p>
+          <button id="cam-color-reset" class="secondary" type="button" hidden>Predvolená farba</button>
+        </div>
         <ol>
           <li>Povoľ kameru a pozri sa na puk na zemi: v náhľade má byť fialový a v žltom krúžku.</li>
+          <li>Ak nie je celý fialový (alebo vôbec), polož ho na zem asi 2 m pred seba, aby bol v náhľade,
+            a <b>ťukni naň v náhľade</b>. Appka sa naučí jeho farbu a zapamätá si ju.</li>
           <li>Klikni na <b>Spustiť</b>. Kalibrácia z minula sa pamätá. Ak jemná žiara nesedí na puku, otvor
             <b>Nastavenia → Kalibrácia puku</b>, polož puk asi meter pred seba a 10 sekúnd sa pomaly pozeraj
             okolo neho (vľavo, vpravo, bližšie, ďalej). Puk sa pritom nesmie hýbať.</li>

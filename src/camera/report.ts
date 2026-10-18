@@ -17,6 +17,8 @@ export interface ReportContext {
   xr: { all: FrameStats; playing: FrameStats; noCamera: FrameStats; targetHz: number };
   /** Stav obnovovacej frekvencie (FrameRateControl.describe). */
   frameRate: string;
+  /** Farba cieľa: naučená alebo predvolená a jej rozsahy. */
+  color: string;
   version: string;
 }
 
@@ -104,6 +106,7 @@ export function buildReport(c: ReportContext): string {
   lines.push(
     `Puk: nájdený v ${s.found} snímkach (${(s.foundRate * 100).toFixed(0)} % za poslednú sekundu) · premietnutý ${s.projected}× · cieľ ${tracker.target}`,
   );
+  lines.push(`  farba: ${c.color}`);
   const p = tracker.puck;
   if (p.valid) {
     lines.push(

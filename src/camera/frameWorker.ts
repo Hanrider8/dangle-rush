@@ -6,6 +6,7 @@
  * Snímky v YUV (Quest dáva I420) sa skopírujú cez copyTo a zmenšia priamo (YuvDownscaler).
  * Ostatné formáty a záložná cesta idú cez canvas (drawImage + getImageData), čo je pomalšie.
  */
+import { learnColor } from '../tracking/colorLearn';
 import { BlobDetector, type Blob } from '../tracking/detector';
 import { YuvDownscaler, isYuvFormat } from '../tracking/yuv';
 import type { DetectionMessage, FrameInfoMessage, FrameWorkerConfig, FromFrameWorker, ToFrameWorker } from './protocol';
@@ -30,6 +31,8 @@ let yuvDisabled = false;
 /** Každý nový stream zvýši generáciu; starý cyklus čítania potom skončí. */
 let generation = 0;
 let infoSent = false;
+/** Čakajúce naučenie farby: bod ťuknutia v náhľade (0–1). */
+let learnAt: { x: number; y: number } | null = null;
 
 function ensureSize(srcWidth: number, srcHeight: number, procWidth: number): void {
   const w = Math.min(procWidth, srcWidth);
@@ -101,6 +104,12 @@ function analyze(
   if (!config || !detector) return;
   const w = image.width;
   const h = image.height;
+  if (learnAt) {
+    // Učí sa z čistej snímky: náhľad prefarbí pixely cieľa až po detekcii.
+    const result = learnColor(image.data, w, h, learnAt.x * w, learnAt.y * h, config.limits, config.learn, detector);
+    learnAt = null;
+    scope.postMessage({ type: 'learned', result });
+  }
   const blob = detector.detect(image.data, config.profile, config.limits);
   const sx = srcWidth / w;
   const sy = srcHeight / h;
@@ -226,8 +235,12 @@ scope.onmessage = (e) => {
         msg.bitmap.close();
       }
       break;
+    case 'learn':
+      learnAt = { x: msg.x, y: msg.y };
+      break;
     case 'stop':
       generation++;
+      learnAt = null;
       break;
   }
 };
