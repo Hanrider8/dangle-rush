@@ -43,6 +43,8 @@ function buttonLabel(id: ButtonId, s: Settings): [string, string?] {
       return [t.difficulty, DIFFICULTY_LABEL[s.difficulty]];
     case 'set.floor':
       return [t.floor, s.floorObstacles ? t.on : t.off];
+    case 'set.headUp':
+      return [t.headUp, s.headUp ? t.on : t.off];
     case 'set.pausePos':
       return [t.pausePos, PAUSE_POSITION_LABEL[s.pausePosition]];
     case 'set.pauseSide':
@@ -312,11 +314,14 @@ function drawResults(panel: CanvasPanel, game: Game): void {
       [t.maxCombo, String(r.maxCombo)],
       [t.body, String(r.bodyPassed)],
       [t.floor, r.floorJudged > 0 ? `${r.floorHits} / ${r.floorJudged}` : String(r.floorPassed)],
-      [`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)],
     ];
-    const size = Math.round(h * 0.075);
+    if (r.signalsTotal > 0) rows.push([t.headUp, `${r.signalsSeen} / ${r.signalsTotal}`]);
+    rows.push([`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
+    // So spoluhráčmi je o riadok viac: riadky sa zhustia, aby sa zmestili do panelu.
+    const dense = rows.length > 5;
+    const size = Math.round(h * (dense ? 0.068 : 0.075));
     rows.forEach(([label, value], i) => {
-      const y = h * (0.57 + i * 0.085);
+      const y = h * (dense ? 0.55 + i * 0.075 : 0.57 + i * 0.085);
       ctx.font = `600 ${size}px ${FONT_FAMILY}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = COLORS.muted;

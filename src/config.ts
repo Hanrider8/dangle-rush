@@ -214,6 +214,52 @@ export const CONFIG = {
     scorePerHit: 25,
   },
 
+  /**
+   * Hlava hore (nastavenie, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč, na ktorého sa treba
+   * pozrieť. Kto hlavu nedvíha, tomu tmavne podlaha. Riadi to prehľad (0–1): s hlavou dole klesá,
+   * pri pohľade hore sa dopĺňa, zmeškaný spoluhráč ho zrazí.
+   */
+  headUp: {
+    /** Prvý spoluhráč po štarte a interval medzi nimi (náhodne min–max, od konca predošlého). */
+    firstDelay: 4,
+    intervalMin: 4,
+    intervalMax: 7,
+    /** Ako dlho spoluhráč čaká na pohľad pri najnižšej a najvyššej úrovni. */
+    showTimeMax: 2.0,
+    showTimeMin: 1.3,
+    /**
+     * Značka spoluhráča: vzdialenosť, elevácia nad výškou očí a azimut (obe strany). Ďaleko od tlačidla
+     * Pauza (bok ±60°, hore 35°) a mimo HUD (±7° nad koncom dráhy).
+     */
+    distance: 6,
+    elevationDeg: 2,
+    azimuthMinDeg: 9,
+    azimuthMaxDeg: 30,
+    /** Pohľad sa ráta, ak je smer hlavy do tohto uhla od značky aspoň lookTime. */
+    lookAngleDeg: 14,
+    lookTime: 0.12,
+    /**
+     * Pri pohľade hore kamera stratí puk: spoluhráč sa objaví, až keď k čiare puku žiadny prvok
+     * na zemi nepríde skôr ako o clearTime, najneskôr však maxWait po termíne.
+     */
+    clearTime: 0.8,
+    maxWait: 2.5,
+    /** Body za zachyteného spoluhráča (krát combo násobiteľ). */
+    scorePerSignal: 50,
+    /** Hlava hore = sklon pohľadu nad týmto uhlom. Prehľad za sekundu: úbytok dole, prírastok hore. */
+    upPitchDeg: -15,
+    drainPerSecond: 0.1,
+    refillPerSecond: 2.0,
+    /** O toľko klesne prehľad pri zmeškanom spoluhráčovi. */
+    missPenalty: 0.4,
+    /** Podlaha začne tmavnúť pod týmto prehľadom, pri nule naplno (najviac maxDarkness, passthrough nezčernie). */
+    darkenBelow: 0.6,
+    maxDarkness: 0.75,
+    /** Tmavne všetko pod touto eleváciou pohľadu, naplno od darkenFullDeg. */
+    darkenStartDeg: -12,
+    darkenFullDeg: -35,
+  },
+
   hud: {
     /** Vzdialenosť HUD pred hráčom (nad koncom dráhy). */
     distance: 7,

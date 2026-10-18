@@ -7,6 +7,7 @@ import type { Config } from '../config';
 import { sweptHeadHit } from './collision';
 import { intervalAt, levelAt, speedAt } from './difficulty';
 import type { EventQueue } from './events';
+import { HeadUpDrill, SIGNAL_SEEN } from './headUp';
 import {
   ELEM_HIT,
   ELEM_MISS,
@@ -33,6 +34,8 @@ import type { PuckSample, Vec3 } from './types';
 
 /** Bez kamery: puk sa nepozná. */
 const NO_PUCK: PuckSample = { valid: false, x: 0, z: 0, age: 0 };
+/** Bez smeru pohľadu (priame testy simulácie): hráč pozerá dole na puk. */
+const LOOK_DOWN: Vec3 = { x: 0, y: -0.77, z: -0.64 };
 
 /** Stav simulácie ako obyčajný objekt (testy pauzy a pokračovania). */
 export interface SimSnapshot {
@@ -51,12 +54,23 @@ export interface SimSnapshot {
   floorMisses: number;
   hits: number;
   rngState: number;
+  /** Hlava hore: prehľad, spoluhráč a náhoda. */
+  awareness: number;
+  signalActive: boolean;
+  signalId: number;
+  signalAge: number;
+  signalNextAt: number;
+  signalsSeen: number;
+  signalsMissed: number;
+  signalRngState: number;
   obstacles: { id: number; kind: string; z: number; prevZ: number; resolved: boolean; hit: boolean }[];
 }
 
 export class GameplaySim {
   readonly obstacles: Obstacle[] = [];
   readonly spawner: Spawner;
+  /** Hlava hore: spoluhráč nad horizontom a prehľad (zatmavenie podlahy). */
+  readonly headUp: HeadUpDrill;
 
   /** Čistý herný čas v sekundách. */
   time = 0;
@@ -90,10 +104,11 @@ export class GameplaySim {
   ) {
     for (let i = 0; i < MAX_OBSTACLES; i++) this.obstacles.push(new Obstacle());
     this.spawner = new Spawner(cfg, 1);
+    this.headUp = new HeadUpDrill(cfg, events);
     this.eyeHeight = cfg.head.defaultEyeHeight;
   }
 
-  reset(seed: number, eyeHeight: number, difficulty: Difficulty, floorEnabled: boolean): void {
+  reset(seed: number, eyeHeight: number, difficulty: Difficulty, floorEnabled: boolean, headUp = false): void {
     for (const o of this.obstacles) o.active = false;
     this.eyeHeight = eyeHeight;
     this.difficulty = difficulty;
@@ -114,13 +129,14 @@ export class GameplaySim {
     this.hits = 0;
     this.waveCount = 0;
     this.spawner.reset(seed);
+    this.headUp.reset(seed, headUp);
   }
 
   /**
    * Jeden fixný krok. h0 → h1 je pohyb stredu hlavy počas kroku (herný priestor), puck je odhad puku
-   * z kamery (neplatný = prvky na zemi sa neposudzujú).
+   * z kamery (neplatný = prvky na zemi sa neposudzujú), fwd je jednotkový smer pohľadu (hlava hore).
    */
-  step(dt: number, h0: Vec3, h1: Vec3, puck: PuckSample = NO_PUCK): void {
+  step(dt: number, h0: Vec3, h1: Vec3, puck: PuckSample = NO_PUCK, fwd: Vec3 = LOOK_DOWN): void {
     const cfg = this.cfg;
     this.time += dt;
     this.level = levelAt(this.time, this.difficulty, cfg.difficulty);
@@ -159,6 +175,16 @@ export class GameplaySim {
       if (o.z - o.length - o.halfDepth > despawnZ) o.active = false;
     }
 
+    const headUp = this.headUp;
+    if (headUp.enabled) {
+      const free = headUp.waiting(this.time) ? this.freeTime(ballZ) : Infinity;
+      if (headUp.step(dt, this.time, this.level, this.eyeHeight, h1, fwd, free) === SIGNAL_SEEN) {
+        this.score += cfg.headUp.scorePerSignal * comboMultiplier(this.combo, cfg.rules);
+        this.combo++;
+        if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+      }
+    }
+
     if (this.spawnPause > 0) {
       this.spawnPause = Math.max(0, this.spawnPause - dt);
       return;
@@ -191,6 +217,14 @@ export class GameplaySim {
       floorMisses: this.floorMisses,
       hits: this.hits,
       rngState: this.spawner.rngState,
+      awareness: this.headUp.awareness,
+      signalActive: this.headUp.active,
+      signalId: this.headUp.id,
+      signalAge: this.headUp.age,
+      signalNextAt: this.headUp.nextAt,
+      signalsSeen: this.headUp.seen,
+      signalsMissed: this.headUp.missed,
+      signalRngState: this.headUp.rngState,
       obstacles: this.obstacles
         .filter((o) => o.active)
         .map((o) => ({ id: o.id, kind: o.kind, z: o.z, prevZ: o.prevZ, resolved: o.resolved, hit: o.hit })),
@@ -243,6 +277,21 @@ export class GameplaySim {
         this.events.push('spawn', o.kind, o.id);
       }
     }
+  }
+
+  /** Za aký čas príde k čiare puku najbližší ešte neposúdený prvok na zemi (∞, ak žiadny). */
+  private freeTime(ballZ: number): number {
+    let free = Infinity;
+    for (let i = 0; i < this.obstacles.length; i++) {
+      const o = this.obstacles[i]!;
+      if (!o.active || o.body) continue;
+      for (let k = 0; k < o.elemCount; k++) {
+        if (o.elemResult[k] !== ELEM_PENDING) continue;
+        const z = o.z + o.elemDz[k]!;
+        if (z <= ballZ) free = Math.min(free, (ballZ - z) / this.speed);
+      }
+    }
+    return free;
   }
 
   private allocate(z: number): Obstacle | null {

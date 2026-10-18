@@ -223,8 +223,8 @@ export function computeLayout(
           if (id) buttons.push(button(id, a, (c - 1) * col, (1 - r) * rowH, S));
         }
       }
-      // Štvrtý rad: obnovovacia frekvencia a s kamerou na puk aj kalibrácia puku (vycentrované).
-      const row4: ButtonId[] = ctx.puckTracking ? ['set.fps', 'set.puck'] : ['set.fps'];
+      // Štvrtý rad: obnovovacia frekvencia, hlava hore a s kamerou na puk aj kalibrácia puku (vycentrované).
+      const row4: ButtonId[] = ctx.puckTracking ? ['set.fps', 'set.headUp', 'set.puck'] : ['set.fps', 'set.headUp'];
       row4.forEach((id, i) => buttons.push(button(id, a, (i - (row4.length - 1) / 2) * col, -2 * rowH, S)));
       break;
     }

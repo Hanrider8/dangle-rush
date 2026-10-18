@@ -23,6 +23,7 @@ describe('nastavenia', () => {
       pausePosition: 'side',
       difficulty: 'medium',
       floorObstacles: true,
+      headUp: true,
       countdown: 2,
       frameRate: 120,
       eyeHeight: null,
@@ -32,9 +33,19 @@ describe('nastavenia', () => {
 
   it('neplatné hodnoty opravia alebo nahradia predvolenými', () => {
     const s = sanitizeSettings(
-      { dwellTime: 5, pauseSide: 'up', pausePosition: 'top', difficulty: 'nightmare', countdown: 0, eyeHeight: 3 },
+      {
+        dwellTime: 5,
+        pauseSide: 'up',
+        pausePosition: 'top',
+        difficulty: 'nightmare',
+        countdown: 0,
+        eyeHeight: 3,
+        headUp: 'áno',
+      },
       CONFIG,
     );
+    expect(s.headUp).toBe(true);
+    expect(sanitizeSettings({ headUp: false }, CONFIG).headUp).toBe(false);
     expect(s.dwellTime).toBe(2);
     expect(s.pauseSide).toBe('right');
     expect(s.pausePosition).toBe('top');

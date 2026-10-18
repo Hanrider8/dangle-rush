@@ -50,6 +50,7 @@ export const STRINGS = {
     maxCombo: 'Max combo',
     body: 'Prekážky pre telo',
     floor: 'Prekážky na zemi',
+    headUp: 'Hlava hore',
     best: 'Rekord',
   },
   settings: {
@@ -57,6 +58,7 @@ export const STRINGS = {
     dwell: 'Čas pohľadu',
     difficulty: 'Obtiažnosť',
     floor: 'Prekážky na zemi',
+    headUp: 'Hlava hore',
     pausePos: 'Poloha pauzy',
     pauseSide: 'Strana pauzy',
     countdown: 'Odpočet',

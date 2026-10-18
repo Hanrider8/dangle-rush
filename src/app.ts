@@ -12,6 +12,7 @@ import { MAX_ELEMENTS } from './core/obstacles';
 import { createHeadSample, createPuckSample, type PuckSample } from './core/types';
 import { HitVignette } from './render/effects';
 import { FloorFeedback } from './render/feedback';
+import { FloorDarkening, TeammateView } from './render/headUp';
 import { createResources } from './render/materials';
 import { ObstacleViews } from './render/obstacleViews';
 import { PlayAreaView } from './render/playArea';
@@ -31,6 +32,9 @@ export class App {
   readonly ui: UiManager;
   readonly obstacles: ObstacleViews;
   readonly feedback: FloorFeedback;
+  /** Hlava hore: spoluhráč nad horizontom a zatmavenie podlahy. */
+  readonly teammate: TeammateView;
+  readonly darkening = new FloorDarkening(CONFIG);
   readonly playArea = new PlayAreaView();
   readonly vignette = new HitVignette();
   readonly sfx = new Sfx(CONFIG.audio.volume);
@@ -66,6 +70,9 @@ export class App {
     this.rig.playRoot.add(this.obstacles.root);
     this.feedback = new FloorFeedback(resources, CONFIG);
     this.rig.playRoot.add(this.feedback.root);
+    this.teammate = new TeammateView(resources);
+    this.rig.playRoot.add(this.teammate.root);
+    this.rig.scene.add(this.darkening.mesh);
     this.rig.scene.add(this.vignette.mesh);
     this.ui = new UiManager(CONFIG, this.rig.playRoot, this.rig.scene);
     document.addEventListener('visibilitychange', () => {
@@ -124,6 +131,8 @@ export class App {
     this.playArea.update(dt, game.state === 'PLAYING');
     this.obstacles.sync(game.sim, game.alpha, dt);
     this.feedback.update(dt, game.alpha, game.sim);
+    this.teammate.update(dt, game);
+    this.darkening.update(dt, game, game.headWorld);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
     this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current);
@@ -188,6 +197,17 @@ export class App {
         break;
       case 'cleared':
         this.obstacles.fadeOut(e.n);
+        break;
+      case 'signal':
+        sfx.call();
+        break;
+      case 'signalSeen':
+        sfx.signalSeen();
+        this.teammate.outcome(e.n, true, this.game.sim.headUp);
+        break;
+      case 'signalMissed':
+        sfx.signalMissed();
+        this.teammate.outcome(e.n, false, this.game.sim.headUp);
         break;
       case 'gameOver':
         sfx.gameOver();

@@ -25,6 +25,10 @@ export type GameEventType =
   | 'floorPass'
   | 'hit'
   | 'cleared'
+  /** Hlava hore: spoluhráč sa objavil / hráč sa naňho pozrel / zmeškal ho (n = poradové číslo). */
+  | 'signal'
+  | 'signalSeen'
+  | 'signalMissed'
   | 'gameOver';
 
 export interface GameEvent {

@@ -68,6 +68,9 @@ export interface GameResult {
   /** Prvky na zemi, ktorými puk prešiel, a všetky posúdené (len s kamerou, inak 0). */
   floorHits: number;
   floorJudged: number;
+  /** Hlava hore: zachytení spoluhráči a všetci, ktorí sa objavili (vypnuté = 0 / 0). */
+  signalsSeen: number;
+  signalsTotal: number;
   hits: number;
   best: number;
   newBest: boolean;
@@ -237,7 +240,7 @@ export class Game {
         this.stepCountdown(dt);
         break;
       case 'PLAYING':
-        this.sim.step(dt, this.stepHead0, this.stepHead1, this.stepPuck);
+        this.sim.step(dt, this.stepHead0, this.stepHead1, this.stepPuck, this.headFwd);
         if (this.sim.lives <= 0) this.toGameOver();
         break;
       case 'READY':
@@ -307,6 +310,10 @@ export class Game {
         s.floorObstacles = !s.floorObstacles;
         this.sim.floorEnabled = s.floorObstacles;
         break;
+      case 'set.headUp':
+        s.headUp = !s.headUp;
+        this.sim.headUp.setEnabled(s.headUp, this.sim.time);
+        break;
       case 'set.pausePos':
         s.pausePosition = s.pausePosition === 'side' ? 'top' : 'side';
         break;
@@ -341,7 +348,7 @@ export class Game {
   private newGame(): void {
     this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
     const s = this.settings;
-    this.sim.reset(this.seed, this.eyeHeight, s.difficulty, s.floorObstacles);
+    this.sim.reset(this.seed, this.eyeHeight, s.difficulty, s.floorObstacles, s.headUp);
     this.result = null;
   }
 
@@ -388,6 +395,8 @@ export class Game {
       floorPassed: sim.floorPassed,
       floorHits: sim.floorHits,
       floorJudged: sim.floorHits + sim.floorMisses,
+      signalsSeen: sim.headUp.seen,
+      signalsTotal: sim.headUp.seen + sim.headUp.missed,
       hits: sim.hits,
       best: this.best[d],
       newBest,

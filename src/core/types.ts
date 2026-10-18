@@ -80,6 +80,7 @@ export type ButtonId =
   | 'set.dwell'
   | 'set.difficulty'
   | 'set.floor'
+  | 'set.headUp'
   | 'set.pausePos'
   | 'set.pauseSide'
   | 'set.countdown'

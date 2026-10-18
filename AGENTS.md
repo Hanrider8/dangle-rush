@@ -11,6 +11,8 @@ obrancovi. Platia tieto obmedzenia:
 
 - Hra pozná **pózu headsetu**. Puk vidí len so sledovaním kamerou (`?cam=1`): vtedy dostáva `PuckSample` a prvky
   na zemi posudzuje (úspech / minutie). Bez kamery sa prvky len počítajú. Hokejku nevidí nikdy.
+- **Hlava hore** (nastavenie, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč a hráč sa naňho musí
+  pozrieť. Kto hlavu nedvíha, tomu tmavne podlaha.
 - Ovládanie je **len pohľadom** (dwell na tlačidle). Vstupy z ovládačov a rúk sa ignorujú, jediný klik je
   „Spustiť“ na stránke.
 - Nasadené je na **https://hanrider8.github.io/dangle-rush/** (repo `Hanrider8/dangle-rush`). Používateľ
@@ -58,13 +60,15 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   gaze.ts       dwell, hysteréza, grace, cooldown, „arming“ tlačidiel, kurzor
   layout.ts     pozície panelov a tlačidiel (v stupňoch od kotvy; predná kotva a kotva pauzy)
   sim.ts        GameplaySim: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre (krokuje sa len v PLAYING)
+  headUp.ts     HeadUpDrill (hlava hore): prehľad 0–1 podľa sklonu pohľadu, spoluhráč nad horizontom, darkness()
   obstacles.ts  typy prekážok, kolízne kvádre obrancov, vzory na zemi (elemDz/elemX/elemPuckX), pokeCheckCenter
   spawner.ts    výber vĺn (mix podľa config.spawn) + pravidlá spravodlivosti
   collision.ts  swept guľa hlavy vs. AABB (zlatý rez na konvexnej funkcii)
   settings.ts   nastavenia a rekordy cez rozhranie KeyValueStorage (localStorage / MemoryStorage)
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty); floorHit/floorMiss/floorPass majú
-                n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky
+                n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky, signal/signalSeen/signalMissed
+                n = poradie spoluhráča
 src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts,
                 colorLearn.test.ts)
   detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička
@@ -80,7 +84,8 @@ src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz po
                 strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
                 feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), hokejisti z primitív
-                (materials.ts, farby vo vertexoch, jeden draw call)
+                (materials.ts, farby vo vertexoch, jeden draw call), headUp.ts (spoluhráč so značkou a krúžkom
+                času, zatmavenie podlahy: pologuľa okolo hlavy natočená voči svetu)
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
 src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts,
@@ -115,6 +120,17 @@ Kľúčové invarianty:
   prešiel čiarou puku (`z − speed·age ≥ puck.z`), podľa `puckPassesElement`. Výsledok je v `o.elemResult[i]`
   (render posúdený prvok skryje). Úspech: body `puck.scorePerHit` × násobiteľ a combo; minutie combo vynuluje.
   Bez puku prvok len prejde stredom plochy (ELEM_UNKNOWN, udalosť floorPass).
+- **Hlava hore** (`sim.headUp`, `config.headUp`): krokuje sa v `sim.step`, takže pauza ju zmrazí. Má vlastný
+  seedovaný `Rng`, takže spawner dostane rovnakú postupnosť vĺn ako bez nej. Smer pohľadu ide do simulácie ako
+  vstup (`Game.headFwd`).
+  - **Prehľad:** pri sklone nad `upPitchDeg` sa dopĺňa, inak klesá. Pod `darkenBelow` tmavne podlaha, najviac na
+    `maxDarkness` (passthrough nikdy úplne nezčernie).
+  - **Spoluhráč:** pri pohľade hore kamera stratí puk, preto príde len v medzere (žiadny prvok na zemi
+    k čiare puku skôr ako `clearTime`, najneskôr `maxWait`). Stojí na `|azimut|` 9–30° a elevácii ~2°, teda mimo
+    HUD a ďaleko od Pauzy (test).
+    - Zachytený = pohľad do `lookAngleDeg` aspoň `lookTime`. Dá `scorePerSignal` × násobiteľ a combo.
+    - Zmeškaný = prehľad − `missPenalty`, combo ostane.
+  - Priame testy simulácie (`sim.reset` bez 5. parametra) majú hlavu hore vypnutú.
 - **Test kamery (`?cam=1`)** hru nevyhodnocuje a bez parametra sa vôbec nenačíta. Kamera headsetu ide cez
   `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
   takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
@@ -149,8 +165,8 @@ Kľúčové invarianty:
 4. `ui/panels.ts`: `buttonLabel`.
 5. Text daj do `ui/strings.ts`.
 
-**Ladenie hrateľnosti:** meň len `src/config.ts`, napríklad `spawn.*`, `obstacles.*`, `difficulty.*`, `gaze.*` alebo
-`pauseButton.*`. Testy čítajú hodnoty z configu, kde sa dá. Po zmene spusti `npm test`, lebo property test
+**Ladenie hrateľnosti:** meň len `src/config.ts`, napríklad `spawn.*`, `obstacles.*`, `difficulty.*`, `gaze.*`,
+`pauseButton.*` alebo `headUp.*`. Testy čítajú hodnoty z configu, kde sa dá. Po zmene spusti `npm test`, lebo property test
 spravodlivosti odhalí nesplniteľné kombinácie.
 
 ## Overenie bez headsetu (emulátor)
@@ -158,7 +174,7 @@ spravodlivosti odhalí nesplniteľné kombinácie.
 `npm run dev:usb` → http://localhost:5173 → klik na „Spustiť“. Emulátor IWER sa nainštaluje len tam, kde chýba
 natívne `immersive-ar`, takže na Queste nie.
 
-- `?demo=1` sám spustí session a **autopilota**: hrá v reálnom čase a ukazuje virtuálny puk.
+- `?demo=1` sám spustí session a **autopilota**: hrá v reálnom čase, ukazuje virtuálny puk a pozerá sa na spoluhráča.
 - `?debug=1` zapne debug overlay (FPS, stav, uhol pohľadu, draw cally).
 - `?iwer=0` vypne emulátor.
 
@@ -173,6 +189,7 @@ Skriptovanie cez `window.__dr`:
 | `trackingLoss(true)`, `device.updateVisibilityState('visible-blurred')` | auto-pauza |
 | `log()`, `snapshot()`, `demo(true/false)` | záznam udalostí, stav simulácie, autopilot (posiela hre virtuálny puk) |
 | `demoPuckOffset(0.5)`, `app.puckSource = (now, out) => …` | ukážka minutí, vlastný puk pre spätnú väzbu |
+| `signal(az)`, `awareness(0)` | hlava hore: hneď spoluhráč, prehľad na zatmavenie (len v PLAYING) |
 
 Statické zábery je najlepšie robiť v pauze (`game.autoPause('visibility')`), lebo prekážky stoja.
 

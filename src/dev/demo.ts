@@ -1,7 +1,8 @@
 /**
  * Len pre vývoj: autopilot na ukážku hry v emulátore (`?demo=1` alebo `__dr.demo(true)`).
  *
- * V reálnom čase ovláda emulovaný headset: pozerá na tlačidlá, sleduje prekážky, uhýba obrancom.
+ * V reálnom čase ovláda emulovaný headset: pozerá na tlačidlá, sleduje prekážky, uhýba obrancom
+ * a pri hlave hore sa pozrie na spoluhráča alebo krátko dvihne hlavu, keď klesá prehľad.
  * Kreslí aj virtuálny puk a posiela ho hre ako puk z kamery (ak kamera nebeží), takže hra prvky
  * na zemi posudzuje a ukazuje spätnú väzbu. `missOffset` puk posunie do strany (ukážka minutí).
  * Do produkčného buildu sa nedostane.
@@ -17,6 +18,10 @@ const DEG = Math.PI / 180;
 /** Najväčšia rýchlosť virtuálneho puku a posunu hlavy do strany (m/s). */
 const PUCK_SPEED = 1.7;
 const HEAD_SPEED = 1.2;
+/** Hlava hore: reakčný čas na spoluhráča, dĺžka pohľadu hore a prehľad, pri ktorom ho autopilot spraví. */
+const MATE_REACTION = 0.3;
+const GLANCE_TIME = 0.4;
+const GLANCE_BELOW = 0.65;
 
 export class DemoPilot {
   active = false;
@@ -35,6 +40,8 @@ export class DemoPilot {
   private raf = 0;
   private phase = '';
   private phaseTime = 0;
+  /** Zostávajúci čas pohľadu hore (hlava hore). */
+  private glance = 0;
   private readonly euler = new Euler(0, 0, 0, 'YXZ');
   private readonly world = { x: 0, y: 0, z: 0 };
 
@@ -170,7 +177,12 @@ export class DemoPilot {
     this.moveHead(headTarget, this.app.game.eyeHeight * 0.86 - duck, dt);
 
     const lookZ = Number.isFinite(nextZ) ? Math.max(nextZ, -4) : -2.5;
-    this.aimAt((this.puckX + targetX) / 2, 0, (ballZ + lookZ) / 2 - 0.4, dt);
+    const mate = sim.headUp;
+    this.glance = Math.max(0, this.glance - dt);
+    if (mate.enabled && !mate.active && this.glance <= 0 && mate.awareness < GLANCE_BELOW) this.glance = GLANCE_TIME;
+    if (mate.active && mate.age > MATE_REACTION) this.aimAt(mate.x, mate.y, mate.z, dt);
+    else if (this.glance > 0) this.aimAt(0, this.app.game.eyeHeight, -CONFIG.headUp.distance, dt);
+    else this.aimAt((this.puckX + targetX) / 2, 0, (ballZ + lookZ) / 2 - 0.4, dt);
   }
 
   private dribbleOffset(): number {

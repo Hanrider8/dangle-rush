@@ -35,6 +35,8 @@ export const PALETTE = {
   /** Spätná väzba: puk prešiel / minul. */
   hit: 0x3ddc84,
   miss: 0x9aa3ad,
+  /** Hlava hore: značka spoluhráča. */
+  mate: 0x5cf29a,
 };
 
 /** Farby tímu hokejistu (dres, pruhy, helma, rukavice). */
@@ -45,10 +47,14 @@ export interface TeamColors {
   gloves: number;
 }
 
-/** Jeden obranca: červený dres (ako bočný blok). Dvojica: modrá so žltou (dvojitý blok). */
-export const TEAMS: Record<'red' | 'blue', TeamColors> = {
+/**
+ * Jeden obranca: červený dres (ako bočný blok). Dvojica: modrá so žltou (dvojitý blok).
+ * Spoluhráč (hlava hore): zelený s bielou, aby sa nepomýlil s obrancami.
+ */
+export const TEAMS: Record<'red' | 'blue' | 'mate', TeamColors> = {
   red: { jersey: 0xc8102e, stripe: 0xf2f2f2, helmet: 0x17191d, gloves: 0x8f0b20 },
   blue: { jersey: 0x1f4fbf, stripe: 0xffd23f, helmet: 0x1f4fbf, gloves: 0x17191d },
+  mate: { jersey: 0x1e9e57, stripe: 0xf2f2f2, helmet: 0xf2f2f2, gloves: 0x17191d },
 };
 
 /** Päťcípa hviezda s polomerom 1, ležiaca na podlahe. */
@@ -210,6 +216,7 @@ export function createResources() {
       cone: new ConeGeometry(1, 1, 14).translate(0, 0.5, 0),
       playerRed: hockeyPlayerGeometry(TEAMS.red),
       playerBlue: hockeyPlayerGeometry(TEAMS.blue),
+      playerMate: hockeyPlayerGeometry(TEAMS.mate),
       star: starGeometry(),
       /** Krúžok na podlahe s polomerom 1 (spätná väzba). */
       ring: new RingGeometry(0.82, 1, 40).rotateX(-Math.PI / 2),

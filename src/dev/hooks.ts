@@ -136,6 +136,19 @@ export function installHooks(app: App, device: XRDevice | null): void {
     clearObstacles(): void {
       for (const o of game.sim.obstacles) o.active = false;
     },
+    /** Hlava hore: hneď ukáže spoluhráča s azimutom azDeg (+ doprava), aj keď je režim vypnutý. */
+    signal(azDeg = 20): void {
+      const sim = game.sim;
+      sim.headUp.enabled = true;
+      sim.headUp.show(sim.level, sim.eyeHeight, azDeg);
+    },
+    /** Hlava hore: nastaví prehľad 0–1 (0 = podlaha naplno stmavne, len počas hrania). */
+    awareness(value: number): number {
+      const drill = game.sim.headUp;
+      drill.enabled = true;
+      drill.awareness = Math.max(0, Math.min(1, value));
+      return app.darkening.opacity;
+    },
   };
   (window as unknown as Record<string, unknown>).__dr = api;
 }

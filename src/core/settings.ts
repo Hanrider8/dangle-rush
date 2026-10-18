@@ -17,6 +17,8 @@ export interface Settings {
   pausePosition: PausePosition;
   difficulty: Difficulty;
   floorObstacles: boolean;
+  /** Hlava hore: spoluhráč nad horizontom a zatmavenie podlahy. */
+  headUp: boolean;
   countdown: number;
   /** Obnovovacia frekvencia XR (Hz). */
   frameRate: number;
@@ -55,6 +57,7 @@ export function defaultSettings(cfg: Config): Settings {
     pausePosition: 'side',
     difficulty: 'medium',
     floorObstacles: true,
+    headUp: true,
     countdown: cfg.countdown.default,
     frameRate: cfg.render.targetFrameRate,
     eyeHeight: null,
@@ -84,6 +87,7 @@ export function sanitizeSettings(raw: unknown, cfg: Config): Settings {
     s.difficulty = r.difficulty as Difficulty;
   }
   if (typeof r.floorObstacles === 'boolean') s.floorObstacles = r.floorObstacles;
+  if (typeof r.headUp === 'boolean') s.headUp = r.headUp;
   if (typeof r.countdown === 'number' && Number.isFinite(r.countdown)) {
     s.countdown = Math.round(clamp(r.countdown, cfg.countdown.min, cfg.countdown.max));
   }

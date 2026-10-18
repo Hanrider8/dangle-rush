@@ -89,6 +89,23 @@ export class Sfx {
     this.tone(240, 0.14, 'triangle', 0.13, 0, 160);
   }
 
+  /** Spoluhráč si pýta puk: dve krátke stúpajúce píšťalky („hej!“). */
+  call(): void {
+    this.tone(1250, 0.09, 'triangle', 0.16, 0, 1650);
+    this.tone(1400, 0.14, 'triangle', 0.18, 0.12, 1900);
+  }
+
+  /** Hráč sa pozrel na spoluhráča: krátky jasný dvojtón nahor (ako prihrávka na čepeľ). */
+  signalSeen(): void {
+    this.tone(1046, 0.08, 'sine', 0.2);
+    this.tone(1568, 0.2, 'sine', 0.2, 0.06);
+  }
+
+  /** Spoluhráč zmeškaný: nízky klesajúci tón. */
+  signalMissed(): void {
+    this.tone(330, 0.3, 'triangle', 0.16, 0, 180);
+  }
+
   /** Obídený obranca: swoosh a nižší dvojtón. */
   bodyPass(): void {
     this.swoosh(0.7);
