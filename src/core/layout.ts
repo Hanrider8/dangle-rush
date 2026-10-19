@@ -171,12 +171,16 @@ export function computeLayout(
       break;
     }
     case 'ready': {
+      // Hore dva režimy (dvojriadkové tlačidlá, stred pohľadu ostane voľný), pod nimi Vycentrovať a Nastavenia.
       const a = frontAnchor(ctx, cfg);
       const row = cfg.ui.frontRowElevationDeg;
+      const modeStep = S.w + gap;
+      const row2 = row - (S.h / 2 + gap + B.h / 2);
       texts.push(text('readyInfo', a, 0, 2.5, 38, 10));
-      buttons.push(button('recenter', a, -step, row, B));
-      buttons.push(button('start', a, 0, row, B));
-      buttons.push(button('settings', a, step, row, B));
+      buttons.push(button('start', a, -modeStep / 2, row, S));
+      buttons.push(button('startDeker', a, modeStep / 2, row, S));
+      buttons.push(button('recenter', a, -step / 2, row2, B));
+      buttons.push(button('settings', a, step / 2, row2, B));
       break;
     }
     case 'countdown': {
@@ -194,17 +198,19 @@ export function computeLayout(
       const a = pauseAnchor(ctx, cfg);
       texts.push(text('pausedTitle', a, 0, B.h / 2 + 3, 24, 4));
       buttons.push(button('resume', a, 0, 0, B));
-      buttons.push(button('newGame', a, -step, rowDrop, B));
-      buttons.push(button('recenter', a, 0, rowDrop, B));
-      buttons.push(button('settings', a, step, rowDrop, B));
+      buttons.push(button('newGame', a, -1.5 * step, rowDrop, B));
+      buttons.push(button('menu', a, -0.5 * step, rowDrop, B));
+      buttons.push(button('recenter', a, 0.5 * step, rowDrop, B));
+      buttons.push(button('settings', a, 1.5 * step, rowDrop, B));
       break;
     }
     case 'gameOver': {
       const a = frontAnchor(ctx, cfg);
       const row = cfg.ui.frontRowElevationDeg;
       texts.push(text('results', a, 0, 4.5, 38, 15));
-      buttons.push(button('newGame', a, -step / 2, row, B));
-      buttons.push(button('settings', a, step / 2, row, B));
+      buttons.push(button('newGame', a, -step, row, B));
+      buttons.push(button('menu', a, 0, row, B));
+      buttons.push(button('settings', a, step, row, B));
       break;
     }
     case 'settings': {

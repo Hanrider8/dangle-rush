@@ -2,7 +2,17 @@
 
 Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stojíš so skutočnou hokejkou, miešaš skutočný puk po podlahe a prevádzaš ho cez virtuálne prekážky. Hra pozná iba pózu headsetu a ovláda sa **pohľadom**: pozrieš sa na tlačidlo a chvíľu podržíš pohľad. Ruky tak ostávajú na hokejke.
 
-Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
+V hlavnom menu sú dve hry:
+
+- **DangleRush**: prekážky idú k tebe a ty cez ne prevádzaš puk (popis nižšie).
+- **Deker**: podľa tréningovej podložky. Pred tebou leží nehybná podložka so 6 svetlami (2 rady × 3). Vždy jedno svetlo svieti a krúžok okolo neho sa sťahuje, kým nevyprší čas. Keď cezeň prevedieš puk, zazelená sa, dostaneš body a rozsvieti sa ďalšie svetlo.
+  - Rýchlejší zásah dá až 2× viac bodov a séria zásahov zvyšuje násobiteľ.
+  - Kolo trvá 60 s. Čas na jedno svetlo závisí od obtiažnosti: od 4 s na rozcvičke po 1,2 s na pro.
+  - Rekord sa vedie pre každú obtiažnosť zvlášť.
+  - Body počíta len so sledovaním puku kamerou. Bez kamery sa svetlá menia v rytme, bez bodov.
+  - Z konca hry aj z pauzy sa do hlavného menu dostaneš tlačidlom **Menu**.
+
+V DangleRush hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
 - **Prekážky na zemi** ukazujú, kam s pukom. Jemne pulzujúci svetelný krúžok na zemi vždy označuje, kadiaľ má ísť puk (stred bránky, medzera pri hokejke, strana pri slalome). Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
   - brána z dvoch oranžových tréningových kužeľov,
@@ -52,7 +62,7 @@ npm run dev:usb
 Otvor http://localhost:5173. Na počítači sa automaticky zapne emulátor IWER (Meta Quest 3).
 
 - Klikni na **Spustiť**. Headset a ovládače ovládaš v paneli DevUI, kde je aj „play mode“ s myšou a klávesnicou.
-- `?demo=1` spustí ukážku: AR session aj autopilota, ktorý hrá sám a ukazuje virtuálny puk.
+- `?demo=1` spustí ukážku: AR session aj autopilota, ktorý hrá sám a ukazuje virtuálny puk. `?demo=deker` spustí ukážku režimu Deker.
 - `?iwer=0` emulátor vypne.
 - `?debug=1` zapne debug overlay. Na počítači ho prepína aj kláves `` ` `` alebo F2.
 - V dev režime je v konzole objekt `window.__dr` na skriptované testovanie, napríklad `__dr.lookAt('start')`, `__dr.advance(1.5)`, `__dr.state` alebo `__dr.place('slalom', -3, 1)`.

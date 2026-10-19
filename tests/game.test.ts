@@ -41,7 +41,7 @@ describe('stavový automat', () => {
     expect(game.state).toBe('READY');
     run(game, 0.1, standing());
     expect(game.layout.id).toBe('ready');
-    expect(game.layout.buttons.map((b) => b.id)).toEqual(['recenter', 'start', 'settings']);
+    expect(game.layout.buttons.map((b) => b.id)).toEqual(['start', 'startDeker', 'recenter', 'settings']);
   });
 
   it('pred prvou platnou pózou neukazuje žiadne tlačidlá', () => {
@@ -72,7 +72,7 @@ describe('stavový automat', () => {
     press(game, 'pause');
     expect(game.state).toBe('PAUSED');
     expect(game.pauseCause).toBe('button');
-    expect(game.layout.buttons.map((b) => b.id)).toEqual(['resume', 'newGame', 'recenter', 'settings']);
+    expect(game.layout.buttons.map((b) => b.id)).toEqual(['resume', 'newGame', 'menu', 'recenter', 'settings']);
     press(game, 'resume');
     expect(game.state).toBe('COUNTDOWN');
     run(game, 2.1, standing(0, -45));
@@ -105,7 +105,7 @@ describe('stavový automat', () => {
     expect(game.result).not.toBeNull();
     expect(game.result!.hits).toBe(CONFIG.rules.lives);
     expect(game.result!.best).toBe(game.result!.score);
-    expect(game.layout.buttons.map((b) => b.id)).toEqual(['newGame', 'settings']);
+    expect(game.layout.buttons.map((b) => b.id)).toEqual(['newGame', 'menu', 'settings']);
   });
 
   it('GAME_OVER → Nová hra → COUNTDOWN s čistou hrou', () => {

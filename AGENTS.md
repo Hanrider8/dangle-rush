@@ -7,7 +7,8 @@ Používateľ komunikuje po slovensky; po slovensky sú aj texty v hre, komentá
 
 Hokejový drill pre **Meta Quest 3** vo WebXR s passthrough (`immersive-ar` + `local-floor`).
 Hráč mieša skutočný puk skutočnou hokejkou a prevádza ho cez virtuálne prekážky na zemi. Občas uhne
-obrancovi. Platia tieto obmedzenia:
+obrancovi. Druhý režim **Deker** (v menu vedľa DangleRush) má nehybnú podložku: rozsvieti sa jedno svetlo
+a hráč cez neho prevedie puk. Kolo trvá 60 s. Platia tieto obmedzenia:
 
 - Hra pozná **pózu headsetu**. Puk vidí len so sledovaním kamerou (predvolene na stránke, `?cam=0` vypne; kamera beží až po „Povoliť kameru“): vtedy dostáva `PuckSample` a prvky
   na zemi posudzuje (úspech / minutie). Bez kamery sa prvky len počítajú. Hokejku nevidí nikdy.
@@ -56,7 +57,10 @@ npm run check          # typecheck + test + build
 ```
 src/config.ts   VŠETKY laditeľné konštanty (rozmery, rýchlosti, dwell, mix prekážok, spravodlivosť)
 src/core/       čistá logika: bez three.js a DOM, deterministická, fixný krok 1/120 s, bez alokácií v update
-  game.ts       stavový automat SETUP/READY/COUNTDOWN/PLAYING/PAUSED/GAME_OVER + podpanely, fixný krok
+  game.ts       stavový automat SETUP/READY/COUNTDOWN/PLAYING/PAUSED/GAME_OVER + podpanely, fixný krok;
+                režim hry `mode` (rush/deker), Menu → READY
+  deker.ts      DekerSim (režim Deker): svetlá na podložke (config.deker), zásah pukom, limit podľa obtiažnosti,
+                minutie / prechod bez kamery, kolo roundTime
   gaze.ts       dwell, hysteréza, grace, cooldown, „arming“ tlačidiel, kurzor
   layout.ts     pozície panelov a tlačidiel (v stupňoch od kotvy; predná kotva a kotva pauzy)
   sim.ts        GameplaySim: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre (krokuje sa len v PLAYING)
@@ -70,7 +74,7 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty); floorHit/floorMiss/floorPass majú
                 n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky, signal/signalSeen
-                n = poradie spoluhráča, signalNag n = eskalácia v %
+                n = poradie spoluhráča, signalNag n = eskalácia v %, dekerTarget/Hit/Miss/Pass n = index svetla
 src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts,
                 colorLearn.test.ts)
   detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička
@@ -85,7 +89,8 @@ src/camera/     sledovanie puku (predvolene, `?cam=0` vypne; dynamický import, 
 src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení, automatický
                 ústup o stupeň, keď hra nestíha), póza hlavy z XRFrame,
                 strata trackingu, ignorovanie vstupov
-src/render/     scéna, plocha pre puk (len mimo hrania), jemné okraje dráhy (stále), meshe prekážok (pooly), kurzor, vinieta,
+src/render/     scéna, plocha pre puk (len mimo hrania), jemné okraje dráhy (stále, v Dekeri nie), meshe prekážok (pooly), kurzor, vinieta,
+                deker.ts (podložka Dekera, svetlá, krúžok odpočtu, záblesky; takmer priehľadná kvôli skutočnému puku),
                 feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), materials.ts
                 (realistický vzhľad: MeshStandardMaterial + RoomEnvironment zo scene.ts, kužeľ, hokejka, puk na bode
                 buly, hokejisti z primitív: matné a lesklé diely s farbami vo vertexoch + číslo, createPlayer), headUp.ts (spoluhráč so značkou, zatmavenie:
@@ -122,6 +127,12 @@ Kľúčové invarianty:
   - rozostupy tlačidiel sú aspoň 2 × hysteréza (test).
 - **Vzory na zemi** (slalom, hviezdy, široké miesanie): prvky sú za čelom prekážky (`elemDz ≤ 0`).
   Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
+- **Deker** (`core/deker.ts`, `config.deker`) sa krokuje len v PLAYING ako `sim`, takže pauza ho zmrazí
+  (test v `deker.test.ts`). Má vlastný seedovaný `Rng`; puk je vstup.
+  - Zásah platí len zo záberu urobeného po rozsvietení (`targetAge − puck.age ≥ 0`).
+  - V Dekeri sa `sim` (DangleRush) resetuje bez prekážok aj bez hlavy hore.
+  - Rekordy sú v `dangleRush.bestDeker.v1`.
+  - HUD je bližšie pri podložke (`config.deker.hud`).
 - **Obtiažnosť je pevná:** `sim.reset` nastaví `level`, `speed` a `interval` podľa úrovne a `step` ich nemení
   (hra sa nezrýchľuje). Rekordy sú v `dangleRush.best.v2` pre každú úroveň.
 - **Pohyblivá hokejka** závisí len od `z` (`pokeCheckCenter`), takže ju pauza zmrazí. Presun skončí `settleTime`
@@ -195,7 +206,7 @@ spravodlivosti odhalí nesplniteľné kombinácie.
 natívne `immersive-ar`, takže na Queste nie.
 
 - `?demo=1` sám spustí session a **autopilota**: hrá v reálnom čase, ukazuje virtuálny puk a na spoluhráča sa pozrie
-  po ~2 s (ukážka začiatku eskalácie).
+  po ~2 s (ukážka začiatku eskalácie). `?demo=deker` hrá Deker (puk ide k svietiacemu svetlu).
 - `?debug=1` zapne debug overlay (FPS, stav, uhol pohľadu, draw cally).
 - `?iwer=0` vypne emulátor.
 
@@ -208,7 +219,8 @@ Skriptovanie cez `window.__dr`:
 | `advance(sekundy)` | posunie hru bez čakania na snímky (deterministicky) |
 | `place('slalom', -3, strana)`, `clearObstacles()` | konkrétne prekážky na vizuálnu kontrolu |
 | `trackingLoss(true)`, `device.updateVisibilityState('visible-blurred')` | auto-pauza |
-| `log()`, `snapshot()`, `demo(true/false)` | záznam udalostí, stav simulácie, autopilot (posiela hre virtuálny puk) |
+| `log()`, `snapshot()`, `demo(true/false, 'deker')` | záznam udalostí, stav simulácie, autopilot (posiela hre virtuálny puk) |
+| `deker()` | stav kola Dekera (svetlo, čas, zásahy) |
 | `demoPuckOffset(0.5)`, `app.puckSource = (now, out) => …` | ukážka minutí, vlastný puk pre spätnú väzbu |
 | `signal(az)`, `mateAge(s)` | hlava hore: hneď spoluhráč, čakanie s sekúnd = eskalácia (tma len v PLAYING) |
 

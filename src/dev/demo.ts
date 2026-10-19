@@ -5,6 +5,7 @@
  * a pri hlave hore sa pozrie na spoluhráča alebo krátko dvihne hlavu, keď klesá prehľad.
  * Kreslí aj virtuálny puk a posiela ho hre ako puk z kamery (ak kamera nebeží), takže hra prvky
  * na zemi posudzuje a ukazuje spätnú väzbu. `missOffset` puk posunie do strany (ukážka minutí).
+ * `mode` = ktorý režim spustí z menu; v Dekeri vedie puk k rozsvietenému svetlu.
  * Do produkčného buildu sa nedostane.
  */
 import type { XRDevice } from 'iwer';
@@ -12,7 +13,7 @@ import { CylinderGeometry, Euler, Group, Mesh, MeshBasicMaterial, RingGeometry }
 import type { App } from '../app';
 import { CONFIG } from '../config';
 import { clamp } from '../core/math';
-import type { ButtonId, PuckSample } from '../core/types';
+import type { ButtonId, GameMode, PuckSample } from '../core/types';
 
 const DEG = Math.PI / 180;
 /** Najväčšia rýchlosť virtuálneho puku a posunu hlavy do strany (m/s). */
@@ -23,14 +24,19 @@ const HEAD_SPEED = 1.2;
  * eskalácie (tma a blikanie).
  */
 const MATE_REACTION = 2.2;
+/** Deker: autopilot sa k svetlu pohne až po tomto čase (ako reakcia hráča). */
+const DEKER_REACTION = 0.3;
 
 export class DemoPilot {
   active = false;
   /** Posun virtuálneho puku do strany (m): ukážka minutí. */
   missOffset = 0;
+  /** Režim, ktorý autopilot spustí z hlavného menu. */
+  mode: GameMode = 'rush';
   private ownsPuck = false;
   private readonly puck = new Group();
   private puckX = 0;
+  private puckZ = -CONFIG.playArea.centerDistance;
   private dribble = 0;
   private headX = 0;
   private headY = 1.5;
@@ -84,7 +90,7 @@ export class DemoPilot {
   private readonly feedPuck = (_now: number, out: PuckSample): void => {
     out.valid = this.app.game.state === 'PLAYING';
     out.x = this.puckX + this.dribbleOffset() + this.missOffset;
-    out.z = -CONFIG.playArea.centerDistance;
+    out.z = this.puckZ;
     out.age = 0;
   };
 
@@ -116,14 +122,15 @@ export class DemoPilot {
         this.moveHead(0, eye, dt);
         if (game.sub === 'settings') this.aimButton('set.back', dt);
         else if (game.sub === 'recenter' || this.phaseTime < 1.5) this.aimDir(0, -5, dt);
-        else this.aimButton('start', dt);
+        else this.aimButton(this.mode === 'deker' ? 'startDeker' : 'start', dt);
         break;
       case 'COUNTDOWN':
         this.moveHead(0, eye * 0.88, dt);
         this.aimDir(0, -30, dt);
         break;
       case 'PLAYING':
-        this.play(dt);
+        if (game.mode === 'deker') this.playDeker(dt);
+        else this.play(dt);
         break;
       case 'PAUSED':
         // Najprv pohľad inam: tlačidlo pod pohľadom sa po aktivácii plní, až keď z neho pohľad odíde.
@@ -141,7 +148,27 @@ export class DemoPilot {
     }
     this.applyPose();
     this.puck.visible = game.state === 'PLAYING' || game.state === 'COUNTDOWN' || game.state === 'PAUSED';
-    this.puck.position.set(this.puckX + this.dribbleOffset() + this.missOffset, 0, -CONFIG.playArea.centerDistance);
+    this.puck.position.set(this.puckX + this.dribbleOffset() + this.missOffset, 0, this.puckZ);
+  }
+
+  /** Deker: puk ide (po krátkej reakcii) priamo k rozsvietenému svetlu, pohľad je na podložke. */
+  private playDeker(dt: number): void {
+    const game = this.app.game;
+    const deker = game.deker;
+    const pad = deker.target >= 0 && deker.targetAge >= DEKER_REACTION ? CONFIG.deker.pads[deker.target] : undefined;
+    if (pad) {
+      const dx = pad.x - this.puckX;
+      const dz = pad.z - this.puckZ;
+      const dist = Math.hypot(dx, dz);
+      const step = Math.min(dist, PUCK_SPEED * dt);
+      if (dist > 1e-6) {
+        this.puckX += (dx / dist) * step;
+        this.puckZ += (dz / dist) * step;
+      }
+    }
+    this.dribble += dt * 9;
+    this.moveHead(this.puckX * 0.25, game.eyeHeight * 0.88, dt);
+    this.aimAt(this.puckX * 0.5, 0, -CONFIG.deker.mat.centerDistance, dt);
   }
 
   /** Hra: puk ide k najbližšej medzere na zemi, hlava uhýba obrancom, pohľad sleduje puk a dráhu. */
@@ -162,6 +189,8 @@ export class DemoPilot {
     }
     const shift = targetX - this.puckX;
     this.puckX += clamp(shift, -PUCK_SPEED * dt, PUCK_SPEED * dt);
+    // Po Dekeri sa puk vráti na čiaru puku.
+    this.puckZ += clamp(ballZ - this.puckZ, -PUCK_SPEED * dt, PUCK_SPEED * dt);
     // Kým nie je kam ísť, puk sa „mieša“ do strán; pri presune len jemne.
     this.dribble += dt * (Math.abs(shift) > 0.05 ? 14 : 9);
 

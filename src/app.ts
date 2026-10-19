@@ -10,6 +10,7 @@ import { Game } from './core/game';
 import type { KeyValueStorage } from './core/settings';
 import { MAX_ELEMENTS } from './core/obstacles';
 import { createHeadSample, createPuckSample, type PuckSample } from './core/types';
+import { DekerView } from './render/deker';
 import { HitVignette } from './render/effects';
 import { FloorFeedback } from './render/feedback';
 import { Darkening, TeammateView } from './render/headUp';
@@ -32,6 +33,8 @@ export class App {
   readonly ui: UiManager;
   readonly obstacles: ObstacleViews;
   readonly feedback: FloorFeedback;
+  /** Režim Deker: podložka so svetlami. */
+  readonly deker: DekerView;
   /** Hlava hore: spoluhráč nad horizontom a zatmavenie, kým sa naňho hráč nepozrie. */
   readonly teammate: TeammateView;
   readonly darkening = new Darkening(CONFIG);
@@ -71,6 +74,8 @@ export class App {
     this.rig.playRoot.add(this.obstacles.root);
     this.feedback = new FloorFeedback(resources, CONFIG);
     this.rig.playRoot.add(this.feedback.root);
+    this.deker = new DekerView(resources, CONFIG);
+    this.rig.playRoot.add(this.deker.root);
     this.teammate = new TeammateView(resources);
     this.rig.playRoot.add(this.teammate.root);
     this.rig.scene.add(this.darkening.mesh);
@@ -149,7 +154,8 @@ export class App {
 
     const game = this.game;
     applyPlayFrame(this.rig.playRoot, game.playFrame);
-    this.playArea.update(dt, game.state === 'PLAYING');
+    this.playArea.update(dt, game.state === 'PLAYING', game.dekerOn);
+    this.deker.update(dt, game);
     this.obstacles.sync(game.sim, game.alpha, dt);
     this.feedback.update(dt, game.alpha, game.sim);
     this.teammate.update(dt, game);
@@ -218,6 +224,18 @@ export class App {
         break;
       case 'cleared':
         this.obstacles.fadeOut(e.n);
+        break;
+      case 'dekerHit':
+        sfx.chime(this.game.deker.combo);
+        this.deker.flash(e.n, 'hit');
+        break;
+      case 'dekerMiss':
+        sfx.miss();
+        this.deker.flash(e.n, 'miss');
+        break;
+      case 'dekerPass':
+        sfx.swoosh(0.35);
+        this.deker.flash(e.n, 'pass');
         break;
       case 'signal':
         sfx.call();

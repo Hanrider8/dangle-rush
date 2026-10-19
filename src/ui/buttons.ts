@@ -22,6 +22,7 @@ export class Button3D {
   private readonly bar: Mesh<typeof UNIT_PLANE, MeshBasicMaterial>;
   private label = '';
   private value = '';
+  private subtitle = false;
   private look: ButtonLook | null = null;
 
   /** Veľkosť canvasu sa určí z uhlovej veľkosti prvého umiestnenia. */
@@ -53,17 +54,22 @@ export class Button3D {
     this.group.add(this.glow, this.panel.mesh, this.bar);
   }
 
-  setLabel(label: string, value = ''): void {
-    if (label === this.label && value === this.value) return;
+  /** value: hodnota nastavenia pod popisom; subtitle = true: value je len menší podtitul pod veľkým názvom (režim hry). */
+  setLabel(label: string, value = '', subtitle = false): void {
+    if (label === this.label && value === this.value && subtitle === this.subtitle) return;
     this.label = label;
     this.value = value;
+    this.subtitle = subtitle;
     this.panel.draw((ctx, w, h) => {
       const pad = Math.round(h * 0.06);
       roundedRect(ctx, pad, pad, w - 2 * pad, h - 2 * pad, h * CORNER * 1.6, COLORS.panelBg, COLORS.panelBorder, Math.max(2, h * 0.025));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const maxW = w - 6 * pad;
-      if (value) {
+      if (value && subtitle) {
+        fitText(ctx, label.toUpperCase(), w / 2, h * 0.42, maxW, Math.round(h * 0.34), 700, COLORS.text);
+        fitText(ctx, value, w / 2, h * 0.72, maxW, Math.round(h * 0.2), 600, COLORS.muted);
+      } else if (value) {
         // Dvojriadkové tlačidlo (nastavenia) je úzke: popis bez verzálok, aby ostal čitateľný.
         fitText(ctx, label, w / 2, h * 0.35, maxW, Math.round(h * 0.25), 600, COLORS.muted);
         fitText(ctx, value, w / 2, h * 0.64, maxW, Math.round(h * 0.32), 700, COLORS.accent);

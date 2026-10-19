@@ -42,6 +42,9 @@ export function createPuckSample(): PuckSample {
 
 export type GameState = 'SETUP' | 'READY' | 'COUNTDOWN' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
 
+/** Herný režim: DangleRush (prekážky idú k hráčovi) alebo Deker (svetlá na statickej podložke). */
+export type GameMode = 'rush' | 'deker';
+
 /** Podpanel v stavoch READY, PAUSED a GAME_OVER (puck = kalibrácia kamery na puk). */
 export type SubPanel = 'main' | 'settings' | 'recenter' | 'puck';
 
@@ -72,6 +75,8 @@ export interface Rect3 {
 export type ButtonId =
   | 'calibrate'
   | 'start'
+  | 'startDeker'
+  | 'menu'
   | 'recenter'
   | 'settings'
   | 'pause'

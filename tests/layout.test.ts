@@ -131,11 +131,21 @@ describe('rozostupy tlačidiel', () => {
     expect(done.cy - done.halfH).toBeGreaterThan(panel.cy + panel.halfH);
   });
 
-  it('po kalibrácii pohľad vpred vo výške očí nepadne na Štart', () => {
+  it('po kalibrácii pohľad vpred vo výške očí nepadne na žiadnu hru', () => {
     const layout = computeLayout('ready', ctx(), CONFIG);
-    const start = layout.buttons.find((b) => b.id === 'start')!;
     const margin = Math.tan(CONFIG.gaze.hysteresisDeg * DEG);
-    expect(hitsRect(start, { x: 0, y: EYE, z: 0 }, { x: 0, y: 0, z: -1 }, margin)).toBe(false);
+    for (const id of ['start', 'startDeker'] as const) {
+      const start = layout.buttons.find((b) => b.id === id)!;
+      expect(hitsRect(start, { x: 0, y: EYE, z: 0 }, { x: 0, y: 0, z: -1 }, margin)).toBe(false);
+    }
+  });
+
+  it('hlavné menu: pohľad rovno pred seba na rad hier padne do medzery medzi nimi', () => {
+    const layout = computeLayout('ready', ctx(), CONFIG);
+    const el = CONFIG.ui.frontRowElevationDeg * DEG;
+    const dir = { x: 0, y: Math.sin(el), z: -Math.cos(el) };
+    const margin = Math.tan(CONFIG.gaze.hysteresisDeg * DEG);
+    for (const b of layout.buttons) expect(hitsRect(b, { x: 0, y: EYE, z: 0 }, dir, margin), b.id).toBe(false);
   });
 
   it('panel nastavení pri polohe pauzy „hore“ je znížený', () => {

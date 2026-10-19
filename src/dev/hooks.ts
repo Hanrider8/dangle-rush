@@ -17,7 +17,7 @@ import {
   makeStars,
   makeWideDangle,
 } from '../core/obstacles';
-import type { ButtonId, ObstacleKind } from '../core/types';
+import type { ButtonId, GameMode, ObstacleKind } from '../core/types';
 import { DemoPilot } from './demo';
 
 export function installHooks(app: App, device: XRDevice | null): void {
@@ -99,6 +99,8 @@ export function installHooks(app: App, device: XRDevice | null): void {
       return game.state;
     },
     snapshot: () => game.sim.snapshot(),
+    /** Deker: stav kola (svetlo, čas, zásahy). */
+    deker: () => game.deker.snapshot(),
     /** Položí konkrétnu prekážku (na vizuálnu kontrolu); automatický spawn sa zastaví. */
     place(kind: ObstacleKind, z: number, param = -1): number {
       const sim = game.sim;
@@ -122,8 +124,9 @@ export function installHooks(app: App, device: XRDevice | null): void {
       return o.id;
     },
     /** Zapne alebo vypne autopilota (ukážka hry s virtuálnym pukom). */
-    demo(on = true): boolean {
+    demo(on = true, mode?: GameMode): boolean {
       if (!pilot) return false;
+      if (mode) pilot.mode = mode;
       if (on) pilot.start();
       else pilot.stop();
       return pilot.active;

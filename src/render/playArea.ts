@@ -3,6 +3,7 @@
  * a na konci; počas hrania sa plynulo skryje, aby boli vidieť len prekážky. Jemné čiary na okrajoch
  * dráhy (config playArea.showTrack) ostávajú vidieť stále, aj počas hrania.
  * Statické čiary sú zlúčené do jedného meshu, výplň plochy je druhý mesh.
+ * V režime Deker sa plocha aj okraje dráhy skryjú (podložku kreslí render/deker.ts).
  */
 import {
   BufferGeometry,
@@ -19,7 +20,7 @@ const FILL_Y = 0.002;
 const LINE_Y = 0.004;
 
 /** Tenké obdĺžniky ležiace na podlahe, s priehľadnosťou vo vertex farbách. */
-class FloorLines {
+export class FloorLines {
   private readonly positions: number[] = [];
   private readonly colors: number[] = [];
   private readonly indices: number[] = [];
@@ -79,6 +80,7 @@ export class PlayAreaView {
   private readonly area = new Group();
   private readonly fillMaterial: MeshBasicMaterial;
   private readonly lineMaterial: MeshBasicMaterial;
+  private readonly track = new Group();
   private visibility = 1;
 
   constructor() {
@@ -87,7 +89,7 @@ export class PlayAreaView {
     const far = -(centerDistance + d / 2);
     const end = -CONFIG.obstacles.spawnDistance;
     this.root.name = 'playArea';
-    this.root.add(this.area);
+    this.root.add(this.area, this.track);
 
     this.fillMaterial = new MeshBasicMaterial({
       color: 0xbcd6ff,
@@ -151,7 +153,7 @@ export class PlayAreaView {
         new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide }),
       );
       trackMesh.renderOrder = 2;
-      this.root.add(trackMesh);
+      this.track.add(trackMesh);
     }
 
     // Statické voči playRoot: lokálne matice netreba prepočítavať každý snímok.
@@ -161,9 +163,13 @@ export class PlayAreaView {
     });
   }
 
-  /** Počas hrania sa plocha plynulo skryje (ak config.playArea.showWhilePlaying nie je zapnuté). */
-  update(dt: number, playing: boolean): void {
-    const target = playing && !CONFIG.playArea.showWhilePlaying ? 0 : 1;
+  /**
+   * Počas hrania sa plocha plynulo skryje (ak config.playArea.showWhilePlaying nie je zapnuté).
+   * V Dekeri (dekerOn) sa skryje aj s okrajmi dráhy.
+   */
+  update(dt: number, playing: boolean, dekerOn = false): void {
+    this.track.visible = !dekerOn;
+    const target = (playing && !CONFIG.playArea.showWhilePlaying) || dekerOn ? 0 : 1;
     if (this.visibility === target) return;
     const step = dt / FADE_TIME;
     this.visibility = target > this.visibility

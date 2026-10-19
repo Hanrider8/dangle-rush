@@ -3,6 +3,7 @@
  * uhol pohľadu k najbližšiemu tlačidlu, draw cally, počet ignorovaných vstupov a hlava hore (sklon pohľadu,
  * čakanie spoluhráča a eskalácia). Obnovuje sa 4× za sekundu.
  */
+import type { Object3D } from 'three';
 import type { Config } from '../config';
 import type { Game } from '../core/game';
 import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, roundedRect } from './canvasPanel';
@@ -31,17 +32,18 @@ export class DebugOverlay {
   private shownMaxMs = 0;
 
   constructor(private readonly cfg: Config) {
-    const d = cfg.hud.distance;
-    const w = 2 * d * Math.tan((WIDTH_DEG / 2) * DEG);
-    const h = 2 * d * Math.tan((HEIGHT_DEG / 2) * DEG);
-    this.panel.mesh.scale.set(w, h, 1);
     this.panel.mesh.visible = false;
   }
 
-  /** Umiestni overlay vľavo od HUD, v rovnakej výške. */
-  place(hudX: number, hudY: number, hudWidth: number): void {
-    const w = this.panel.mesh.scale.x;
-    this.panel.mesh.position.set(hudX - hudWidth / 2 - 0.15 - w / 2, hudY, -this.cfg.hud.distance);
+  /** Umiestni overlay vľavo od HUD, v rovnakej rovine; uhlová veľkosť nezávisí od vzdialenosti HUD. */
+  place(hud: Object3D, hudDistance: number): void {
+    const m = this.panel.mesh;
+    const w = 2 * hudDistance * Math.tan((WIDTH_DEG / 2) * DEG);
+    const h = 2 * hudDistance * Math.tan((HEIGHT_DEG / 2) * DEG);
+    const gap = 0.15 * (hudDistance / this.cfg.hud.distance);
+    m.scale.set(w, h, 1);
+    m.rotation.copy(hud.rotation);
+    m.position.set(hud.position.x - hud.scale.x / 2 - gap - w / 2, hud.position.y, hud.position.z);
   }
 
   /** xrHz = obnovovacia frekvencia, ktorú hlási XR session (0 = nevedno), hzNote = automatický ústup. */
@@ -68,7 +70,9 @@ export class DebugOverlay {
       `hlava y ${num(game.head.y, 2)} m · kalibrácia ${num(game.eyeHeight, 2)} m`,
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
-      `${sim.difficulty} · ${num(sim.speed, 1)} m/s · vlna ${num(sim.interval, 1)} s · prekážky ${activeCount(sim.obstacles)}`,
+      game.mode === 'deker'
+        ? `deker ${game.deker.difficulty} · svetlo ${game.deker.target} ${num(game.deker.targetAge, 1)}/${num(game.deker.timeout, 1)} s · ${game.deker.hits}/${game.deker.misses}/${game.deker.passes}`
+        : `${sim.difficulty} · ${num(sim.speed, 1)} m/s · vlna ${num(sim.interval, 1)} s · prekážky ${activeCount(sim.obstacles)}`,
       `sklon ${Math.round(pitch)}° · spoluhráč ${headUp.active ? `čaká ${num(headUp.age, 1)} s · eskalácia ${Math.round(headUp.escalation() * 100)} %` : '–'} · zachytení ${headUp.seen}`,
     ];
     this.panel.draw((ctx, w, h) => {

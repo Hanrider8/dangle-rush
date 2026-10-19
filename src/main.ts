@@ -69,13 +69,14 @@ async function main(): Promise<void> {
   button.disabled = false;
   showStatus('Pripravené. Klikni ovládačom na Spustiť.');
 
-  // Len vývoj: `?demo=1` spustí AR session v emulátore a autopilota (ukážka bez ovládania).
-  if (import.meta.env.DEV && device && params.get('demo') === '1') {
+  // Len vývoj: `?demo=1` spustí AR session v emulátore a autopilota (ukážka bez ovládania), `?demo=deker` režim Deker.
+  const demo = params.get('demo');
+  if (import.meta.env.DEV && device && (demo === '1' || demo === 'deker')) {
     button.disabled = true;
     app.start().then(
       () => {
         showStatus('');
-        (window as unknown as { __dr: { demo(on: boolean): boolean } }).__dr.demo(true);
+        (window as unknown as { __dr: { demo(on: boolean, mode?: string): boolean } }).__dr.demo(true, demo === 'deker' ? 'deker' : 'rush');
       },
       () => {
         button.disabled = false;

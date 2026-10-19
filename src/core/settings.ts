@@ -37,6 +37,8 @@ export interface KeyValueStorage {
 export const SETTINGS_KEY = 'dangleRush.settings.v1';
 /** v2: pevné úrovne obtiažnosti (rekordy z hry so zrýchľovaním sa nedajú porovnať). */
 export const BEST_KEY = 'dangleRush.best.v2';
+/** Rekordy režimu Deker (pre každú obtiažnosť zvlášť). */
+export const BEST_DEKER_KEY = 'dangleRush.bestDeker.v1';
 
 /** Úložisko v pamäti: pre testy a ako náhrada, keď localStorage nie je dostupný. */
 export class MemoryStorage implements KeyValueStorage {
@@ -129,9 +131,9 @@ export function saveSettings(storage: KeyValueStorage, settings: Settings): void
   writeJson(storage, SETTINGS_KEY, settings);
 }
 
-export function loadBest(storage: KeyValueStorage): BestScores {
+export function loadBest(storage: KeyValueStorage, key = BEST_KEY): BestScores {
   const best: BestScores = { warmup: 0, easy: 0, medium: 0, hard: 0, pro: 0 };
-  const raw = readJson(storage, BEST_KEY);
+  const raw = readJson(storage, key);
   if (typeof raw === 'object' && raw !== null) {
     for (const d of DIFFICULTIES) {
       const v = (raw as Record<string, unknown>)[d];
@@ -141,8 +143,8 @@ export function loadBest(storage: KeyValueStorage): BestScores {
   return best;
 }
 
-export function saveBest(storage: KeyValueStorage, best: BestScores): void {
-  writeJson(storage, BEST_KEY, best);
+export function saveBest(storage: KeyValueStorage, best: BestScores, key = BEST_KEY): void {
+  writeJson(storage, key, best);
 }
 
 /** Ďalšia hodnota dwell v cykle 0,8 → 1,0 → … → 2,0 → 0,8. */

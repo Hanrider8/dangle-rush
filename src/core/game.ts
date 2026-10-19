@@ -4,16 +4,17 @@
  * | Stav      | Prechod                                                                 |
  * |-----------|-------------------------------------------------------------------------|
  * | SETUP     | dwell na „Kalibrovať“ → uloží výšku očí → READY (alebo späť, odkiaľ prišiel) |
- * | READY     | Štart → COUNTDOWN                                                       |
+ * | READY     | DangleRush / Deker → COUNTDOWN (vybraný režim)                          |
  * | COUNTDOWN | po odpočte → PLAYING                                                    |
- * | PLAYING   | Pauza / auto-pauza → PAUSED; posledný život → GAME_OVER                 |
- * | PAUSED    | Pokračovať → COUNTDOWN → PLAYING presne odtiaľ, kde hra stála           |
- * | GAME_OVER | Nová hra → COUNTDOWN                                                    |
+ * | PLAYING   | Pauza / auto-pauza → PAUSED; posledný život (Deker: koniec kola) → GAME_OVER |
+ * | PAUSED    | Pokračovať → COUNTDOWN → PLAYING presne odtiaľ, kde hra stála; Menu → READY |
+ * | GAME_OVER | Nová hra (rovnaký režim) → COUNTDOWN; Menu → READY                      |
  *
  * READY, PAUSED a GAME_OVER majú podpanely: hlavný, nastavenia a vycentrovanie (s odpočtom).
- * Pohľad (dwell) beží v každom stave, simulácia prekážok len v PLAYING.
+ * Pohľad (dwell) beží v každom stave, simulácia (prekážky alebo svetlá Dekera) len v PLAYING.
  */
 import { CONFIG, type Config } from '../config';
+import { DekerSim } from './deker';
 import { EventQueue } from './events';
 import { GazeSystem } from './gaze';
 import {
@@ -26,6 +27,7 @@ import {
 import { copyVec, forwardFromQuat, lerpVec, vec3 } from './math';
 import { PlayFrame } from './playFrame';
 import {
+  BEST_DEKER_KEY,
   MemoryStorage,
   cycleCountdown,
   cycleDwell,
@@ -46,6 +48,7 @@ import {
   createPuckSample,
   type AutoPauseReason,
   type ButtonId,
+  type GameMode,
   type GameState,
   type HeadSample,
   type PuckSample,
@@ -60,6 +63,7 @@ export interface GameOptions {
 }
 
 export interface GameResult {
+  mode: GameMode;
   score: number;
   time: number;
   maxCombo: number;
@@ -73,6 +77,11 @@ export interface GameResult {
   signalsSeen: number;
   avgReaction: number;
   hits: number;
+  /** Deker: zásahy, posúdené svetlá (zásahy + minutia, len s kamerou), všetky svetlá a priemerný čas zásahu (s). */
+  targetsHit: number;
+  targetsJudged: number;
+  targetsShown: number;
+  avgHitTime: number;
   best: number;
   newBest: boolean;
   difficulty: Difficulty;
@@ -106,8 +115,13 @@ export class Game {
   readonly playFrame = new PlayFrame();
   readonly gaze: GazeSystem;
   readonly sim: GameplaySim;
+  /** Režim Deker: svetlá na statickej podložke. */
+  readonly deker: DekerSim;
+  readonly bestDeker: BestScores;
 
   state: GameState;
+  /** Režim rozohranej (alebo poslednej) hry. */
+  mode: GameMode = 'rush';
   sub: SubPanel = 'main';
   pauseCause: PauseCause | null = null;
   /** Aktuálne rozloženie panelov; layoutVersion sa zvýši pri každej zmene. */
@@ -158,8 +172,10 @@ export class Game {
     this.seed = (options.seed ?? 1) >>> 0;
     this.settings = loadSettings(this.storage, this.cfg);
     this.best = loadBest(this.storage);
+    this.bestDeker = loadBest(this.storage, BEST_DEKER_KEY);
     this.gaze = new GazeSystem({ ...this.cfg.gaze, dwellTime: this.settings.dwellTime }, this.events);
     this.sim = new GameplaySim(this.cfg, this.events);
+    this.deker = new DekerSim(this.cfg, this.events);
     this.sim.eyeHeight = this.eyeHeight;
     this.setupHeight = this.eyeHeight;
     this.state = this.settings.eyeHeight === null ? 'SETUP' : 'READY';
@@ -169,6 +185,11 @@ export class Game {
   /** Kalibrovaná výška očí (alebo predvolená, kým kalibrácia neprebehla). */
   get eyeHeight(): number {
     return this.settings.eyeHeight ?? this.cfg.head.defaultEyeHeight;
+  }
+
+  /** Deker je rozohraný alebo práve skončil: render ukáže podložku namiesto plochy DangleRush. */
+  get dekerOn(): boolean {
+    return this.mode === 'deker' && this.state !== 'READY' && this.state !== 'SETUP';
   }
 
   /** Nová AR session: plocha sa vycentruje podľa prvej platnej pózy. */
@@ -241,8 +262,13 @@ export class Game {
         this.stepCountdown(dt);
         break;
       case 'PLAYING':
-        this.sim.step(dt, this.stepHead0, this.stepHead1, this.stepPuck, this.headFwd);
-        if (this.sim.lives <= 0) this.toGameOver();
+        if (this.mode === 'deker') {
+          this.deker.step(dt, this.stepPuck);
+          if (this.deker.finished) this.toGameOver();
+        } else {
+          this.sim.step(dt, this.stepHead0, this.stepHead1, this.stepPuck, this.headFwd);
+          if (this.sim.lives <= 0) this.toGameOver();
+        }
         break;
       case 'READY':
       case 'PAUSED':
@@ -260,9 +286,19 @@ export class Game {
         this.calibrate();
         return;
       case 'start':
+      case 'startDeker':
+        this.mode = id === 'start' ? 'rush' : 'deker';
+        this.newGame();
+        this.toCountdown();
+        return;
       case 'newGame':
         this.newGame();
         this.toCountdown();
+        return;
+      case 'menu':
+        // Rozohraná hra sa zahodí (ako pri Nová hra z pauzy); v menu nesmú zostať prekážky ani tma.
+        this.newGame();
+        this.setState('READY');
         return;
       case 'pause':
         this.pauseCause = 'button';
@@ -309,11 +345,12 @@ export class Game {
         break;
       case 'set.floor':
         s.floorObstacles = !s.floorObstacles;
-        this.sim.floorEnabled = s.floorObstacles;
+        if (this.mode === 'rush') this.sim.floorEnabled = s.floorObstacles;
         break;
       case 'set.headUp':
         s.headUp = !s.headUp;
-        this.sim.headUp.setEnabled(s.headUp, this.sim.time);
+        // V Dekeri spoluhráč nie je; nastavenie platí od ďalšej hry DangleRush.
+        if (this.mode === 'rush') this.sim.headUp.setEnabled(s.headUp, this.sim.time);
         break;
       case 'set.pausePos':
         s.pausePosition = s.pausePosition === 'side' ? 'top' : 'side';
@@ -349,7 +386,10 @@ export class Game {
   private newGame(): void {
     this.seed = (Math.imul(this.seed, 1664525) + 1013904223) >>> 0;
     const s = this.settings;
-    this.sim.reset(this.seed, this.eyeHeight, s.difficulty, s.floorObstacles, s.headUp);
+    // V Dekeri ostane simulácia DangleRush prázdna: žiadne prekážky ani spoluhráč (tma).
+    const rush = this.mode === 'rush';
+    this.sim.reset(this.seed, this.eyeHeight, s.difficulty, rush && s.floorObstacles, rush && s.headUp);
+    this.deker.reset(this.seed, s.difficulty);
     this.result = null;
   }
 
@@ -381,17 +421,21 @@ export class Game {
 
   private toGameOver(): void {
     const sim = this.sim;
-    const score = Math.floor(sim.score);
-    const d = sim.difficulty;
-    const newBest = score > this.best[d];
+    const deker = this.deker;
+    const isDeker = this.mode === 'deker';
+    const score = Math.floor(isDeker ? deker.score : sim.score);
+    const d = isDeker ? deker.difficulty : sim.difficulty;
+    const best = isDeker ? this.bestDeker : this.best;
+    const newBest = score > best[d];
     if (newBest) {
-      this.best[d] = score;
-      saveBest(this.storage, this.best);
+      best[d] = score;
+      saveBest(this.storage, best, isDeker ? BEST_DEKER_KEY : undefined);
     }
     this.result = {
+      mode: this.mode,
       score,
-      time: sim.time,
-      maxCombo: sim.maxCombo,
+      time: isDeker ? deker.time : sim.time,
+      maxCombo: isDeker ? deker.maxCombo : sim.maxCombo,
       bodyPassed: sim.bodyPassed,
       floorPassed: sim.floorPassed,
       floorHits: sim.floorHits,
@@ -400,7 +444,11 @@ export class Game {
       signalsSeen: sim.headUp.seen,
       avgReaction: sim.headUp.seen > 0 ? sim.headUp.reactionSum / sim.headUp.seen : 0,
       hits: sim.hits,
-      best: this.best[d],
+      targetsHit: deker.hits,
+      targetsJudged: deker.hits + deker.misses,
+      targetsShown: deker.shown,
+      avgHitTime: deker.hits > 0 ? deker.reactionSum / deker.hits : 0,
+      best: best[d],
       newBest,
       difficulty: d,
     };

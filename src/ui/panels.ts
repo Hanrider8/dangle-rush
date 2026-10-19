@@ -7,7 +7,7 @@ import type { Config } from '../config';
 import type { Game } from '../core/game';
 import type { GazeButton } from '../core/gaze';
 import type { Settings } from '../core/settings';
-import type { ButtonId, HeadSample, Rect3, TextId } from '../core/types';
+import type { ButtonId, GameMode, HeadSample, Rect3, TextId } from '../core/types';
 import { GazeCursor } from '../render/cursor';
 import { Button3D } from './buttons';
 import { COLORS, CORNER, CanvasPanel, FONT_FAMILY, accentTick, fitText, placeOnRect, roundedRect } from './canvasPanel';
@@ -26,11 +26,16 @@ import {
 const DEG = 180 / Math.PI;
 const GO_DURATION = 0.7;
 
-function buttonLabel(id: ButtonId, s: Settings): [string, string?] {
+/** Popis tlačidla, hodnota (alebo podtitul) a či je to podtitul pod veľkým názvom (režimy hry). */
+function buttonLabel(id: ButtonId, s: Settings): [string, string?, boolean?] {
   const t = STRINGS.settings;
   switch (id) {
-    case 'calibrate':
     case 'start':
+      return [STRINGS.modes.rush, STRINGS.modes.rushHint, true];
+    case 'startDeker':
+      return [STRINGS.modes.deker, STRINGS.modes.dekerHint, true];
+    case 'calibrate':
+    case 'menu':
     case 'recenter':
     case 'settings':
     case 'pause':
@@ -87,6 +92,7 @@ export class UiManager {
   private recenterShown = -1;
   private calibrationError = false;
   private hudEyeHeight = -1;
+  private hudMode: GameMode | null = null;
   private readonly tmpPos = new Vector3();
   private readonly tmpQuat = new Quaternion();
   private readonly tmpOffset = new Vector3();
@@ -106,11 +112,11 @@ export class UiManager {
       this.settingsVersion = game.settingsVersion;
       this.refreshLabels(game.settings);
     }
-    if (game.eyeHeight !== this.hudEyeHeight) {
+    if (game.eyeHeight !== this.hudEyeHeight || game.mode !== this.hudMode) {
       this.hudEyeHeight = game.eyeHeight;
-      this.hud.place(game.eyeHeight);
-      const hud = this.hud.panel.mesh;
-      this.debug.place(hud.position.x, hud.position.y, hud.scale.x);
+      this.hudMode = game.mode;
+      this.hud.place(game.eyeHeight, game.mode);
+      this.debug.place(this.hud.panel.mesh, this.hud.distance);
     }
 
     const gaze = game.gaze;
@@ -156,8 +162,8 @@ export class UiManager {
       view = new Button3D(b, Math.hypot(b.cx, b.cy - game.eyeHeight, b.cz));
       this.buttons.set(b.id, view);
       this.root.add(view.group);
-      const [label, value] = buttonLabel(b.id, game.settings);
-      view.setLabel(label, value);
+      const [label, value, subtitle] = buttonLabel(b.id, game.settings);
+      view.setLabel(label, value, subtitle);
     }
     view.place(b);
     view.group.visible = true;
@@ -166,8 +172,8 @@ export class UiManager {
 
   private refreshLabels(s: Settings): void {
     for (const [id, view] of this.buttons) {
-      const [label, value] = buttonLabel(id, s);
-      view.setLabel(label, value);
+      const [label, value, subtitle] = buttonLabel(id, s);
+      view.setLabel(label, value, subtitle);
     }
   }
 
@@ -190,12 +196,13 @@ export class UiManager {
         return;
       case 'readyInfo': {
         const d = game.settings.difficulty;
+        const m = STRINGS.modes;
         drawInfo(
           panel,
           STRINGS.ready.title,
           STRINGS.ready.hint,
           COLORS.muted,
-          `${STRINGS.ready.best} (${DIFFICULTY_LABEL[d]}): ${formatScore(game.best[d])}`,
+          `${STRINGS.ready.best} (${DIFFICULTY_LABEL[d]}): ${m.rush} ${formatScore(game.best[d])} · ${m.deker} ${formatScore(game.bestDeker[d])}`,
         );
         return;
       }
@@ -316,16 +323,23 @@ function drawResults(panel: CanvasPanel, game: Game): void {
     if (r.newBest) fitText(ctx, t.newBest.toUpperCase(), w / 2, h * 0.45, w * 0.9, Math.round(h * 0.08), 700, COLORS.accent);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.fillRect(w * 0.1, h * 0.5, w * 0.8, 2);
-    const rows: [string, string][] = [
-      [t.time, formatClock(r.time)],
-      [t.maxCombo, String(r.maxCombo)],
-      [t.body, String(r.bodyPassed)],
-      [t.floor, r.floorJudged > 0 ? `${r.floorHits} / ${r.floorJudged}` : String(r.floorPassed)],
-    ];
-    if (r.headUp) {
-      rows.push([t.headUp, r.signalsSeen > 0 ? `${r.signalsSeen} · ⌀ ${formatSeconds(r.avgReaction)}` : '0']);
+    const rows: [string, string][] = [];
+    if (r.mode === 'deker') {
+      // Bez kamery sa svetlá len striedali: ukáže sa ich počet.
+      rows.push([t.targets, r.targetsJudged > 0 ? `${r.targetsHit} / ${r.targetsJudged}` : `${r.targetsShown} · ${t.noCamera}`]);
+      rows.push([t.avgHit, r.targetsHit > 0 ? formatSeconds(r.avgHitTime, 2) : '–']);
+      rows.push([t.maxCombo, String(r.maxCombo)]);
+      rows.push([`${t.best} (${STRINGS.modes.deker}, ${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
+    } else {
+      rows.push([t.time, formatClock(r.time)]);
+      rows.push([t.maxCombo, String(r.maxCombo)]);
+      rows.push([t.body, String(r.bodyPassed)]);
+      rows.push([t.floor, r.floorJudged > 0 ? `${r.floorHits} / ${r.floorJudged}` : String(r.floorPassed)]);
+      if (r.headUp) {
+        rows.push([t.headUp, r.signalsSeen > 0 ? `${r.signalsSeen} · ⌀ ${formatSeconds(r.avgReaction)}` : '0']);
+      }
+      rows.push([`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
     }
-    rows.push([`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
     // So spoluhráčmi je o riadok viac: riadky sa zhustia, aby sa zmestili do panelu.
     const dense = rows.length > 5;
     const size = Math.round(h * (dense ? 0.068 : 0.075));

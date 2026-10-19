@@ -15,7 +15,7 @@ export const PAUSE_POSITION_LABEL: Record<PausePosition, string> = { side: 'bok'
 export const STRINGS = {
   buttons: {
     calibrate: 'Kalibrovať',
-    start: 'Štart',
+    menu: 'Menu',
     recenter: 'Vycentrovať',
     settings: 'Nastavenia',
     pause: 'Pauza',
@@ -29,9 +29,16 @@ export const STRINGS = {
     hint: 'Postav sa vzpriamene a pozri sa na tlačidlo.',
     error: 'Výška hlavy je mimo rozsahu. Postav sa vzpriamene a skús znova.',
   },
+  /** Herné režimy (tlačidlá v hlavnom menu: názov a podtitul). */
+  modes: {
+    rush: 'DangleRush',
+    rushHint: 'prekážky',
+    deker: 'Deker',
+    dekerHint: 'svetlá na zemi',
+  },
   ready: {
     title: 'DangleRush',
-    hint: 'Polož puk do stredu plochy. Tlačidlo aktivuješ pohľadom.',
+    hint: 'Polož puk do stredu plochy a pohľadom vyber hru.',
     best: 'Rekord',
   },
   paused: {
@@ -54,6 +61,10 @@ export const STRINGS = {
     floor: 'Prekážky na zemi',
     headUp: 'Hlava hore',
     best: 'Rekord',
+    /** Deker */
+    targets: 'Zásahy',
+    avgHit: 'Priemerný čas',
+    noCamera: 'bez kamery',
   },
   settings: {
     title: 'Nastavenia',
@@ -83,6 +94,8 @@ export const STRINGS = {
     combo: 'Combo',
     time: 'Čas',
     puck: 'Puk',
+    hits: 'Zásahy',
+    lights: 'Svetlá',
     paused: 'PAUZA',
     menuLeft: '← menu vľavo',
     menuRight: 'menu vpravo →',

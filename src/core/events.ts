@@ -30,6 +30,14 @@ export type GameEventType =
   | 'signalSeen'
   /** Hlava hore: spoluhráč stále čaká, naliehavé pripomenutie (n = eskalácia v %). */
   | 'signalNag'
+  /**
+   * Deker (n = index svetla): svetlo sa rozsvietilo / puk ním prešiel / limit vypršal, hoci kamera puk
+   * videla / limit vypršal bez puku (rytmus bez kamery).
+   */
+  | 'dekerTarget'
+  | 'dekerHit'
+  | 'dekerMiss'
+  | 'dekerPass'
   | 'gameOver';
 
 export interface GameEvent {

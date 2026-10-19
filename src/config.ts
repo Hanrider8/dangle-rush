@@ -269,6 +269,38 @@ export const CONFIG = {
     nagIntervalMin: 0.6,
   },
 
+  /**
+   * Režim Deker (podľa tréningovej podložky): plocha stojí, na nej sa rozsvieti jedno svetlo a hráč
+   * cez neho prevedie puk. Kolo trvá roundTime; bez kamery sa svetlá menia v rytme (targetTime) bez bodov.
+   */
+  deker: {
+    roundTime: 60,
+    /** Prvé svetlo po štarte a krátka medzera po zásahu alebo minutí, kým sa rozsvieti ďalšie. */
+    firstDelay: 0.6,
+    gapTime: 0.25,
+    /** Podložka v hernom priestore: šírka (x), hĺbka (z) a vzdialenosť jej stredu pred hráčom. */
+    mat: { width: 1.5, depth: 0.75, centerDistance: 0.6 },
+    /** Svetlá (stred v hernom priestore): 2 rady × 3 stĺpce v dosahu hokejky. */
+    pads: [
+      { x: -0.55, z: -0.38 },
+      { x: 0, z: -0.38 },
+      { x: 0.55, z: -0.38 },
+      { x: -0.55, z: -0.85 },
+      { x: 0, z: -0.85 },
+      { x: 0.55, z: -0.85 },
+    ],
+    padRadius: 0.1,
+    /** Zásah: stred puku najviac takto ďaleko od stredu svetla. */
+    hitRadius: 0.13,
+    /** Body za zásah (krát combo násobiteľ); okamžitý zásah dá navyše speedBonus × 100 %, na konci limitu nič. */
+    scorePerHit: 100,
+    speedBonus: 1,
+    /** Ako dlho svieti jedno svetlo podľa obtiažnosti (s). */
+    targetTime: { warmup: 4, easy: 3, medium: 2.2, hard: 1.6, pro: 1.2 },
+    /** Výsledková tabuľa (HUD) bližšie a nižšie, aby bola vidieť pri pohľade na podložku. */
+    hud: { distance: 2.2, elevationDeg: -16 },
+  },
+
   hud: {
     /** Vzdialenosť HUD pred hráčom (nad koncom dráhy). */
     distance: 7,
