@@ -85,7 +85,7 @@ src/camera/     sledovanie puku (predvolene, `?cam=0` vypne; dynamický import, 
 src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení, automatický
                 ústup o stupeň, keď hra nestíha), póza hlavy z XRFrame,
                 strata trackingu, ignorovanie vstupov
-src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
+src/render/     scéna, plocha pre puk (len mimo hrania), jemné okraje dráhy (stále), meshe prekážok (pooly), kurzor, vinieta,
                 feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), materials.ts
                 (realistický vzhľad: MeshStandardMaterial + RoomEnvironment zo scene.ts, kužeľ, hokejka, puk na bode
                 buly, hokejisti z primitív: matné a lesklé diely s farbami vo vertexoch + číslo, createPlayer), headUp.ts (spoluhráč so značkou, zatmavenie:

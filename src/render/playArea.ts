@@ -1,7 +1,7 @@
 /**
  * Plocha pre puk na reálnej podlahe (obdĺžnik so stredovým krúžkom). Je vidieť pred hrou, v pauze
- * a na konci; počas hrania sa plynulo skryje, aby boli vidieť len prekážky. Čiary dráhy sú
- * voliteľné (config playArea.showTrack), predvolene vypnuté.
+ * a na konci; počas hrania sa plynulo skryje, aby boli vidieť len prekážky. Jemné čiary na okrajoch
+ * dráhy (config playArea.showTrack) ostávajú vidieť stále, aj počas hrania.
  * Statické čiary sú zlúčené do jedného meshu, výplň plochy je druhý mesh.
  */
 import {
@@ -67,8 +67,16 @@ const FILL_OPACITY = 0.08;
 /** Ako rýchlo sa plocha skryje alebo zobrazí (s). */
 const FADE_TIME = 0.5;
 
+/** Okraje dráhy: priehľadnosť pri hráčovi a na konci dráhy, dĺžka nábehu pri hráčovi (m), hrúbka (m). */
+const TRACK_ALPHA_NEAR = 0.32;
+const TRACK_ALPHA_FAR = 0.08;
+const TRACK_FADE_IN = 0.6;
+const TRACK_WIDTH = 0.012;
+
 export class PlayAreaView {
   readonly root = new Group();
+  /** Plocha pre puk (skrýva sa počas hrania); okraje dráhy sú mimo nej. */
+  private readonly area = new Group();
   private readonly fillMaterial: MeshBasicMaterial;
   private readonly lineMaterial: MeshBasicMaterial;
   private visibility = 1;
@@ -79,6 +87,7 @@ export class PlayAreaView {
     const far = -(centerDistance + d / 2);
     const end = -CONFIG.obstacles.spawnDistance;
     this.root.name = 'playArea';
+    this.root.add(this.area);
 
     this.fillMaterial = new MeshBasicMaterial({
       color: 0xbcd6ff,
@@ -91,7 +100,7 @@ export class PlayAreaView {
     fill.rotation.x = -Math.PI / 2;
     fill.position.set(0, FILL_Y, -centerDistance);
     fill.renderOrder = 1;
-    this.root.add(fill);
+    this.area.add(fill);
 
     const lines = new FloorLines([0.95, 0.97, 1]);
     // Obvod plochy.
@@ -113,17 +122,6 @@ export class PlayAreaView {
     lines.ring(0, -centerDistance, 0.07, 0.012, 0.8);
     lines.segment(-0.03, -centerDistance, 0.03, -centerDistance, 0.008, 0.8);
     lines.segment(0, -centerDistance - 0.03, 0, -centerDistance + 0.03, 0.008, 0.8);
-    if (showTrack) {
-      // Dráha: okraje slabnú smerom do diaľky, v strede prerušovaná čiara, na konci čiara spawnu.
-      lines.segment(-w / 2, far, -w / 2, end, 0.025, 0.45, 0.12);
-      lines.segment(w / 2, far, w / 2, end, 0.025, 0.45, 0.12);
-      for (let z = far - 0.25; z > end + 0.25; z -= 0.6) {
-        const t = (far - z) / (far - end);
-        lines.segment(0, z, 0, z - 0.3, 0.015, 0.3 * (1 - t) + 0.08);
-      }
-      lines.segment(-w / 2, end, w / 2, end, 0.02, 0.2);
-    }
-
     this.lineMaterial = new MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
@@ -132,7 +130,29 @@ export class PlayAreaView {
     });
     const lineMesh = new Mesh(lines.build(), this.lineMaterial);
     lineMesh.renderOrder = 2;
-    this.root.add(lineMesh);
+    this.area.add(lineMesh);
+
+    if (showTrack) {
+      // Jemné čiary na okrajoch dráhy: pri hráčovi plynulý nábeh, smerom do diaľky slabnú až po miesto spawnu.
+      const track = new FloorLines([0.95, 0.97, 1]);
+      for (const x of [-w / 2, w / 2]) {
+        track.segment(x, near, x, near - TRACK_FADE_IN, TRACK_WIDTH, 0, TRACK_ALPHA_NEAR);
+        const steps = 6;
+        const z0 = near - TRACK_FADE_IN;
+        for (let i = 0; i < steps; i++) {
+          const a = z0 + ((end - z0) * i) / steps;
+          const b = z0 + ((end - z0) * (i + 1)) / steps;
+          const alpha = (k: number) => TRACK_ALPHA_NEAR + (TRACK_ALPHA_FAR - TRACK_ALPHA_NEAR) * k;
+          track.segment(x, a, x, b, TRACK_WIDTH, alpha(i / steps), alpha((i + 1) / steps));
+        }
+      }
+      const trackMesh = new Mesh(
+        track.build(),
+        new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide }),
+      );
+      trackMesh.renderOrder = 2;
+      this.root.add(trackMesh);
+    }
 
     // Statické voči playRoot: lokálne matice netreba prepočítavať každý snímok.
     this.root.traverse((o) => {
@@ -151,6 +171,6 @@ export class PlayAreaView {
       : Math.max(target, this.visibility - step);
     this.fillMaterial.opacity = FILL_OPACITY * this.visibility;
     this.lineMaterial.opacity = this.visibility;
-    this.root.visible = this.visibility > 0.001;
+    this.area.visible = this.visibility > 0.001;
   }
 }

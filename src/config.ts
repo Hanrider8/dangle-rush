@@ -37,8 +37,8 @@ export const CONFIG = {
     centerDistance: 0.55,
     /** Plocha je vidieť pred hrou, v pauze a na konci; počas hrania len ak je toto true. */
     showWhilePlaying: false,
-    /** Slabé čiary dráhy od plochy po miesto spawnu (v MR netreba, smer ukazujú prekážky). */
-    showTrack: false,
+    /** Jemné čiary na okrajoch dráhy od hráča po miesto spawnu (vidieť stále, aj počas hrania). */
+    showTrack: true,
   },
 
   gaze: {

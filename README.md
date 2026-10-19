@@ -185,7 +185,7 @@ Všetky laditeľné hodnoty sú v [`src/config.ts`](src/config.ts). Ako prvé sa
 | `obstacles.sideBlock.innerX` | 0,1 m | Aký veľký úkrok je pri obrancovi potrebný. |
 | `playArea.width`, `.depth`, `.centerDistance` | 1,5 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk (šírka obmedzuje aj bočné posuny prekážok). |
 | `puck.*` | — | Tolerancie posudzovania puku (brána, hviezda, slalom) a body za prvok. |
-| `playArea.showWhilePlaying`, `.showTrack` | vyp, vyp | Plocha aj počas hrania; čiary dráhy k miestu spawnu. |
+| `playArea.showWhilePlaying`, `.showTrack` | vyp, zap | Plocha aj počas hrania; jemné čiary na okrajoch dráhy (aj počas hrania). |
 | `difficulty.levels` | 1,5–4,5 m/s | Pevné úrovne: rýchlosť, interval medzi vlnami a `level` (odomykanie typov, podiel obrancov). |
 
 ## Štruktúra projektu
