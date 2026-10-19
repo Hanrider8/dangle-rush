@@ -10,7 +10,7 @@ import type { Settings } from '../core/settings';
 import type { ButtonId, HeadSample, Rect3, TextId } from '../core/types';
 import { GazeCursor } from '../render/cursor';
 import { Button3D } from './buttons';
-import { COLORS, CORNER, CanvasPanel, FONT_FAMILY, accentTick, fitText, placeOnRect, roundedRect } from './canvasPanel';
+import { COLORS, CanvasPanel, FONT_FAMILY, fitText, placeOnRect, roundedRect } from './canvasPanel';
 import { DebugOverlay } from './debugOverlay';
 import { Hud } from './hud';
 import {
@@ -255,12 +255,11 @@ export class UiManager {
     if (n !== this.recenterShown) {
       this.recenterShown = n;
       panel.draw((ctx, w, h) => {
-        roundedRect(ctx, 3, 3, w - 6, h - 6, h * CORNER, COLORS.panelBg, COLORS.panelBorder, 2);
-        accentTick(ctx, 3 + h * 0.06, 3, w * 0.12, Math.max(3, h * 0.015));
+        roundedRect(ctx, 4, 4, w - 8, h - 8, h * 0.12, COLORS.panelBg, COLORS.panelBorder, 5);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        fitText(ctx, STRINGS.recenter.hint, w / 2, h * 0.3, w * 0.9, Math.round(h * 0.13), 600, COLORS.text);
-        fitText(ctx, String(n), w / 2, h * 0.66, w * 0.5, Math.round(h * 0.42), 700, COLORS.accent);
+        fitText(ctx, STRINGS.recenter.hint, w / 2, h * 0.3, w * 0.9, Math.round(h * 0.13), 700, COLORS.text);
+        fitText(ctx, String(n), w / 2, h * 0.66, w * 0.5, Math.round(h * 0.42), 800, COLORS.accent);
       });
     }
     this.tmpQuat.set(head.qx, head.qy, head.qz, head.qw);
@@ -275,16 +274,14 @@ export class UiManager {
 
 function drawInfo(panel: CanvasPanel, title: string, hint: string, hintColor: string, extra = ''): void {
   panel.draw((ctx, w, h) => {
-    const m = Math.min(w, h);
-    roundedRect(ctx, 3, 3, w - 6, h - 6, m * CORNER, COLORS.panelBg, COLORS.panelBorder, 2);
-    accentTick(ctx, 3 + m * 0.08, 3, w * 0.1, Math.max(3, m * 0.02), hintColor === COLORS.warn ? COLORS.warn : COLORS.accent);
+    roundedRect(ctx, 4, 4, w - 8, h - 8, Math.min(w, h) * 0.12, COLORS.panelBg, COLORS.panelBorder, 4);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const lines = 1 + (hint ? 1 : 0) + (extra ? 1 : 0);
     const titleY = lines === 1 ? h * 0.52 : lines === 2 ? h * 0.36 : h * 0.27;
-    fitText(ctx, title.toUpperCase(), w / 2, titleY, w * 0.9, Math.round(h * (lines === 1 ? 0.46 : 0.26)), 700, COLORS.text);
-    if (hint) fitText(ctx, hint, w / 2, lines === 2 ? h * 0.7 : h * 0.57, w * 0.9, Math.round(h * 0.14), 500, hintColor);
-    if (extra) fitText(ctx, extra, w / 2, h * 0.8, w * 0.9, Math.round(h * 0.12), 600, COLORS.accent);
+    fitText(ctx, title, w / 2, titleY, w * 0.9, Math.round(h * (lines === 1 ? 0.5 : 0.28)), 800, COLORS.text);
+    if (hint) fitText(ctx, hint, w / 2, lines === 2 ? h * 0.7 : h * 0.57, w * 0.9, Math.round(h * 0.14), 600, hintColor);
+    if (extra) fitText(ctx, extra, w / 2, h * 0.8, w * 0.9, Math.round(h * 0.12), 700, COLORS.accent);
   });
 }
 
@@ -292,12 +289,11 @@ function drawCountdown(panel: CanvasPanel, text: string): void {
   panel.draw((ctx, w, h) => {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = h * 0.04;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.font = `700 ${Math.round(h * 0.7)}px ${FONT_FAMILY}`;
+    ctx.lineWidth = h * 0.05;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.font = `900 ${Math.round(h * 0.7)}px ${FONT_FAMILY}`;
     ctx.strokeText(text, w / 2, h * 0.54);
-    // Číslice odpočtu biele, „Hraj!“ v akcente.
-    ctx.fillStyle = /^\d+$/.test(text) ? COLORS.text : COLORS.accent;
+    ctx.fillStyle = COLORS.accent;
     ctx.fillText(text, w / 2, h * 0.54);
   });
 }
@@ -306,16 +302,13 @@ function drawResults(panel: CanvasPanel, game: Game): void {
   const r = game.result;
   const t = STRINGS.gameOver;
   panel.draw((ctx, w, h) => {
-    roundedRect(ctx, 3, 3, w - 6, h - 6, h * CORNER * 0.6, COLORS.panelBg, COLORS.panelBorder, 2);
-    accentTick(ctx, 3 + h * 0.04, 3, w * 0.1, Math.max(3, h * 0.01));
+    roundedRect(ctx, 4, 4, w - 8, h - 8, h * 0.08, COLORS.panelBg, COLORS.panelBorder, 4);
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    fitText(ctx, t.title.toUpperCase(), w / 2, h * 0.12, w * 0.9, Math.round(h * 0.11), 700, COLORS.muted);
+    fitText(ctx, t.title, w / 2, h * 0.12, w * 0.9, Math.round(h * 0.13), 800, COLORS.text);
     if (!r) return;
-    fitText(ctx, formatScore(r.score), w / 2, h * 0.3, w * 0.9, Math.round(h * 0.19), 700, COLORS.text);
-    if (r.newBest) fitText(ctx, t.newBest.toUpperCase(), w / 2, h * 0.45, w * 0.9, Math.round(h * 0.08), 700, COLORS.accent);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.fillRect(w * 0.1, h * 0.5, w * 0.8, 2);
+    fitText(ctx, formatScore(r.score), w / 2, h * 0.3, w * 0.9, Math.round(h * 0.17), 900, COLORS.accent);
+    if (r.newBest) fitText(ctx, t.newBest, w / 2, h * 0.45, w * 0.9, Math.round(h * 0.09), 800, COLORS.warn);
     const rows: [string, string][] = [
       [t.time, formatClock(r.time)],
       [t.maxCombo, String(r.maxCombo)],
@@ -337,7 +330,7 @@ function drawResults(panel: CanvasPanel, game: Game): void {
       ctx.fillText(label, w * 0.58, y);
       ctx.textAlign = 'left';
       ctx.fillStyle = COLORS.text;
-      ctx.font = `700 ${size}px ${FONT_FAMILY}`;
+      ctx.font = `800 ${size}px ${FONT_FAMILY}`;
       ctx.fillText(value, w * 0.62, y);
     });
   });

@@ -23,9 +23,9 @@ function vignetteTexture(): CanvasTexture {
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.18, size / 2, size / 2, size * 0.5);
-  g.addColorStop(0, 'rgba(255, 59, 78, 0)');
-  g.addColorStop(0.6, 'rgba(255, 59, 78, 0.22)');
-  g.addColorStop(1, 'rgba(255, 59, 78, 0.75)');
+  g.addColorStop(0, 'rgba(255, 30, 50, 0)');
+  g.addColorStop(0.55, 'rgba(255, 30, 50, 0.35)');
+  g.addColorStop(1, 'rgba(255, 20, 40, 0.95)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   const texture = new CanvasTexture(canvas);

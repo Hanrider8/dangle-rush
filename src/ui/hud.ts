@@ -1,5 +1,5 @@
 /**
- * HUD nad vzdialeným koncom dráhy: životy (pipy), skóre, násobiteľ, čas, puk a combo. Veľkosť je zadaná v uhloch,
+ * HUD nad vzdialeným koncom dráhy: životy, skóre, combo, čas. Veľkosť je zadaná v uhloch,
  * takže je rovnako čitateľný pri ľubovoľnej vzdialenosti. Prekreslí sa len pri zmene hodnôt.
  * Skóre s bonusom za čas sa mení 10× za sekundu: kvôli nemu a času sa HUD prekreslí najviac
  * 2× za sekundu (každé prekreslenie nahráva textúru do GPU). Životy, combo a puk hneď.
@@ -7,7 +7,7 @@
 import type { Config } from '../config';
 import type { Game } from '../core/game';
 import { comboMultiplier } from '../core/scoring';
-import { COLORS, CORNER, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, accentTick, roundedRect, spacedText } from './canvasPanel';
+import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, roundedRect } from './canvasPanel';
 import { STRINGS, formatClock, formatScore } from './strings';
 
 const DEG = Math.PI / 180;
@@ -16,51 +16,15 @@ const HEIGHT_DEG = 4.6;
 /** Najkratší čas medzi prekresleniami len kvôli skóre a času (ms). */
 const SLOW_REFRESH_MS = 500;
 
-/** Životy ako zvislé pipy (plné = zostávajúce). */
-function pips(ctx: CanvasRenderingContext2D, x: number, cy: number, h: number, lives: number, total: number): void {
-  const w = h * 0.34;
-  const gap = h * 0.22;
-  for (let i = 0; i < total; i++) {
-    const px = x + i * (w + gap);
-    if (i < lives) {
-      ctx.fillStyle = lives === 1 ? COLORS.danger : COLORS.text;
-      ctx.fillRect(px, cy - h / 2, w, h);
-    } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px + 1, cy - h / 2 + 1, w - 2, h - 2);
-    }
-  }
-}
-
-/** Popisok (verzálky, rozostup) a hodnota za ním; x = ľavý okraj, align = kam sa dvojica zarovná. */
-function stat(
-  ctx: CanvasRenderingContext2D,
-  label: string,
-  value: string,
-  x: number,
-  y: number,
-  size: number,
-  valueColor: string,
-  align: 'left' | 'center' | 'right',
-): void {
-  const labelFont = `600 ${Math.round(size * 0.78)}px ${FONT_FAMILY}`;
-  const valueFont = `700 ${size}px ${FONT_FAMILY}`;
-  const spacing = Math.max(1, Math.round(size * 0.12));
-  ctx.font = labelFont;
-  const lw = ctx.measureText(label).width + spacing * label.length;
-  ctx.font = valueFont;
-  const vw = ctx.measureText(value).width;
-  const pad = size * 0.4;
-  const total = lw + pad + vw;
-  const x0 = align === 'left' ? x : align === 'center' ? x - total / 2 : x - total;
-  ctx.textAlign = 'left';
-  ctx.font = labelFont;
-  ctx.fillStyle = COLORS.muted;
-  spacedText(ctx, label, x0, y, spacing);
-  ctx.font = valueFont;
-  ctx.fillStyle = valueColor;
-  ctx.fillText(value, x0 + lw + pad, y);
+function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, fill: string): void {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.3);
+  ctx.bezierCurveTo(x, y, x - s * 0.5, y, x - s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x - s * 0.5, y + s * 0.6, x, y + s * 0.8, x, y + s);
+  ctx.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
+  ctx.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
+  ctx.fillStyle = fill;
+  ctx.fill();
 }
 
 export class Hud {
@@ -132,46 +96,50 @@ export class Hud {
     const totalLives = this.cfg.rules.lives;
 
     this.panel.draw((ctx, w, h) => {
-      roundedRect(ctx, 2, 2, w - 4, h - 4, h * CORNER, COLORS.panelBg, COLORS.panelBorder, 2);
-      accentTick(ctx, 2 + h * 0.12, 2, w * 0.1, Math.max(2, Math.round(h * 0.025)), paused ? COLORS.warn : COLORS.accent);
-      const row1 = h * 0.37;
-      const row2 = h * 0.79;
+      roundedRect(ctx, 4, 4, w - 8, h - 8, h * 0.18, 'rgba(8, 14, 26, 0.72)', 'rgba(120, 210, 255, 0.6)', 4);
+      const row1 = h * 0.36;
+      const row2 = h * 0.76;
+      const big = Math.round(h * 0.34);
+      const small = Math.round(h * 0.2);
       ctx.textBaseline = 'middle';
 
-      pips(ctx, w * 0.05, row1, h * 0.26, sim.lives, totalLives);
+      const s = h * 0.28;
+      for (let i = 0; i < totalLives; i++) {
+        heart(ctx, w * 0.07 + i * s * 1.15, row1 - s * 0.5, s, i < sim.lives ? COLORS.danger : 'rgba(255,255,255,0.18)');
+      }
       ctx.textAlign = 'center';
-      ctx.font = `700 ${Math.round(h * 0.42)}px ${FONT_FAMILY}`;
+      ctx.font = `800 ${big}px ${FONT_FAMILY}`;
       ctx.fillStyle = COLORS.text;
-      ctx.fillText(formatScore(score), w * 0.5, row1 + h * 0.01);
-
-      // Násobiteľ: odznak s okrajom, keď je combo aktívne.
-      const badge = `×${multiplier}`;
-      ctx.font = `700 ${Math.round(h * 0.24)}px ${FONT_FAMILY}`;
-      const bw = ctx.measureText(badge).width + h * 0.2;
-      const bh = h * 0.3;
-      const bx = w * 0.95 - bw;
-      if (multiplier > 1) roundedRect(ctx, bx, row1 - bh / 2, bw, bh, bh * 0.18, 'rgba(63, 208, 255, 0.12)', COLORS.accent, 2);
+      ctx.fillText(formatScore(score), w * 0.5, row1);
+      ctx.textAlign = 'right';
+      ctx.font = `800 ${Math.round(big * 0.8)}px ${FONT_FAMILY}`;
       ctx.fillStyle = multiplier > 1 ? COLORS.accent : COLORS.muted;
-      ctx.fillText(badge, bx + bw / 2, row1 + h * 0.005);
+      ctx.fillText(`×${multiplier}`, w * 0.95, row1);
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.fillRect(w * 0.04, h * 0.6, w * 0.92, 1);
-
-      const small = Math.round(h * 0.17);
+      ctx.textAlign = 'center';
       if (paused) {
         // V pauze má spodný riadok celý pokyn, kde je menu.
-        ctx.textAlign = 'center';
-        ctx.font = `700 ${small}px ${FONT_FAMILY}`;
+        ctx.font = `800 ${small}px ${FONT_FAMILY}`;
         ctx.fillStyle = COLORS.warn;
-        spacedText(ctx, `${STRINGS.hud.paused} · ${hint}`, w * 0.5, row2, 1);
+        ctx.fillText(`${STRINGS.hud.paused} · ${hint}`, w * 0.5, row2);
         return;
       }
+      ctx.font = `600 ${small}px ${FONT_FAMILY}`;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = COLORS.muted;
+      ctx.fillText(`${STRINGS.hud.time} ${formatClock(sim.time)}`, w * 0.05, row2);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${STRINGS.hud.combo} ${sim.combo}`, w * 0.95, row2);
       // S kamerou: prvky, ktorými puk prešiel / všetky posúdené; bez kamery len vzory, čo prešli plochou.
       const judged = sim.floorHits + sim.floorMisses;
-      const puck = judged > 0 ? `${sim.floorHits}/${judged}` : String(sim.floorPassed);
-      stat(ctx, STRINGS.hud.time.toUpperCase(), formatClock(sim.time), w * 0.05, row2, small, COLORS.text, 'left');
-      stat(ctx, STRINGS.hud.puck.toUpperCase(), puck, w * 0.5, row2, small, COLORS.accent, 'center');
-      stat(ctx, STRINGS.hud.combo.toUpperCase(), String(sim.combo), w * 0.95, row2, small, COLORS.text, 'right');
+      ctx.textAlign = 'center';
+      ctx.font = `700 ${small}px ${FONT_FAMILY}`;
+      ctx.fillStyle = COLORS.accent;
+      ctx.fillText(
+        `${STRINGS.hud.puck} ${judged > 0 ? `${sim.floorHits}/${judged}` : sim.floorPassed}`,
+        w * 0.5,
+        row2,
+      );
     });
   }
 }
