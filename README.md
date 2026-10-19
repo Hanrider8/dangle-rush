@@ -4,17 +4,17 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 
 Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
-- **Prekážky na zemi** ukazujú, kam s pukom. Zelená plocha so šípkami vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
-  - brána z dvoch kužeľov,
+- **Prekážky na zemi** ukazujú, kam s pukom. Modrá farba na zemi (ako modrá čiara na ľade) vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
+  - brána z dvoch oranžových tréningových kužeľov,
   - nízka hokejka na zemi z jednej strany,
   - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
-  - hviezdy, cez ktoré prevedieš puk,
+  - puky na červených bodoch buly (v kóde „hviezdy“), cez ktoré prevedieš svoj puk,
   - široké miesanie: brána úplne na jednej strane a hneď nato na druhej,
   - pohyblivá hokejka obrancu (poke check), ktorá sa po zemi presunie na druhú stranu, a puk musíš stiahnuť do medzery, ktorá sa otvorí.
-- **Obrancovia** (hokejisti v červenom a modrom drese) sa vyhodnocujú podľa polohy hlavy; obídený obranca sa zosunie do podlahy:
+- **Obrancovia** (hokejisti súpera v červených dresoch) sa vyhodnocujú podľa polohy hlavy; obídený obranca sa zosunie do podlahy:
   - jeden obranca: úkrok alebo náklon na druhú stranu,
   - dvaja obrancovia: hlavou cez medzeru.
-- **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč v zelenom a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
+- **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč v bielom domácom drese so značkou nad hlavou a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
 - **Obtiažnosť** (v nastaveniach) má 5 pevných úrovní a počas hry sa nič nezrýchľuje:
 
   | Úroveň | Rýchlosť | Vlna každých | Prekážky |
@@ -28,6 +28,8 @@ Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, 
   Zmena platí od novej hry a rekord sa vedie pre každú úroveň zvlášť.
 - Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
 - Vysoká tyč (zohýbanie) je v hre stále naprogramovaná, ale v predvolenom mixe je vypnutá (`spawn.bodyWeights.highBar` v configu).
+
+**Vzhľad:** hokejisti v dresoch s číslami, tréningové kužele, puky a hokejky majú fyzikálne materiály (PBR) s osvetlením z prostredia. Všetko je stále poskladané z primitív v kóde (bez 3D modelov), takže to nie je úroveň hier s profesionálnymi modelmi. Menu a HUD sú v štýle televízneho prenosu (tmavomodrá, biela, zlatá, červený pás).
 
 Technológie: Three.js, TypeScript, Vite a Vitest. Na vývoj bez headsetu slúži IWER (emulátor WebXR od Meta). Zvuky sú syntetizované cez Web Audio a modely poskladané z primitív, takže hra nepoužíva žiadne externé assety.
 

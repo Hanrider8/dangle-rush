@@ -17,7 +17,7 @@ import { createResources } from './render/materials';
 import { ObstacleViews } from './render/obstacleViews';
 import { PlayAreaView } from './render/playArea';
 import { createRenderer } from './render/renderer';
-import { applyPlayFrame, createScene, type SceneRig } from './render/scene';
+import { applyEnvironment, applyPlayFrame, createScene, type SceneRig } from './render/scene';
 import { UiManager } from './ui/panels';
 import { FrameRateControl } from './xr/frameRate';
 import { readHeadPose } from './xr/headPose';
@@ -62,6 +62,7 @@ export class App {
   constructor(container: HTMLElement, storage: KeyValueStorage) {
     this.renderer = createRenderer(container);
     this.rig = createScene();
+    applyEnvironment(this.renderer, this.rig.scene);
     this.game = new Game({ storage, seed: Date.now() & 0x7fffffff });
     this.frameRate = new FrameRateControl(this.game.settings.frameRate);
     this.rig.playRoot.add(this.playArea.root);

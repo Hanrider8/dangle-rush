@@ -86,8 +86,9 @@ src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz po
                 ústup o stupeň, keď hra nestíha), póza hlavy z XRFrame,
                 strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
-                feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), hokejisti z primitív
-                (materials.ts, farby vo vertexoch, jeden draw call), headUp.ts (spoluhráč so značkou, zatmavenie:
+                feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), materials.ts
+                (realistický vzhľad: MeshStandardMaterial + RoomEnvironment zo scene.ts, kužeľ, hokejka, puk na bode
+                buly, hokejisti z primitív: matné a lesklé diely s farbami vo vertexoch + číslo, createPlayer), headUp.ts (spoluhráč so značkou, zatmavenie:
                 guľa okolo hlavy natočená voči svetu, shader podľa elevácie a okna okolo spoluhráča)
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
@@ -155,6 +156,11 @@ Kľúčové invarianty:
   Namerané na Queste 3 (Quest Browser 150): kamery `camera 1/2, facing back` (ľavá/pravá), 1280 × 1280 @ 30 fps,
   I420, f ≈ 862 px, sklon −10,8°, oneskorenie ≈ 44 ms (predvolený odhad v `config.camera.guess`). Panel testu sa
   počas hry skrýva (nahrávanie veľkej CanvasTexture trhalo hru); správa meria plynulosť XR snímok (`FrameStats`).
+
+**Vzhľad:** realistický (PBR materiály, osvetlenie z prostredia `applyEnvironment` v `render/scene.ts`), bez externých
+modelov. UI v štýle TV prenosu: `ui/canvasPanel.ts` `COLORS` (tmavomodrá, biela, zlatý akcent, červený pás). Na úroveň
+profesionálnych hier by boli treba skutočné 3D modely (glTF); voľne licencovaný realistický hokejista na Sketchfabe
+nie je, platené balíky stoja ~150–400 $.
 
 ## Typické úlohy
 

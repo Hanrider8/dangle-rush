@@ -9,7 +9,7 @@ import type { Config } from '../config';
 import { ELEM_PENDING, MAX_ELEMENTS, MAX_OBSTACLES, pokeCheckCenter, type Obstacle } from '../core/obstacles';
 import type { GameplaySim } from '../core/sim';
 import type { ObstacleKind } from '../core/types';
-import type { Resources } from './materials';
+import { createPlayer, type PlayerGeometry, type Resources } from './materials';
 
 const POOL_PER_KIND = 6;
 const FADE_TIME = 0.22;
@@ -86,20 +86,21 @@ class HighBarView implements ObstacleView {
   }
 }
 
-/** Obranca (hokejista) a takmer priesvitná zóna, ktorú treba obísť hlavou. */
+/** Obranca (hokejista v drese s číslom) a takmer priesvitná zóna, ktorú treba obísť hlavou. */
 class Defender {
-  readonly body: Mesh;
+  readonly body: Group;
   readonly zone: Mesh;
   readonly shadow: Mesh;
 
-  constructor(r: Resources, geometry: BufferGeometry, zone: Material) {
-    this.body = mesh(geometry, r.material.player);
+  constructor(r: Resources, geometry: PlayerGeometry, zone: Material) {
+    this.body = createPlayer(geometry, r.material.playerMatte, r.material.playerGloss, r.material.numberOpponent);
     this.zone = mesh(r.geometry.box, zone, 2);
     this.shadow = mesh(r.geometry.floorPlane, r.material.shadow, 3);
   }
 
   addTo(group: Group): void {
-    group.add(this.shadow, this.body, this.zone);
+    // Kolízna zóna sa nekreslí: pri realistickom hokejistovi pôsobila ako umelý kváder.
+    group.add(this.shadow, this.body);
   }
 
   /** Zóna od x0 po x1, hokejista pri vnútornej hrane (innerX), tvárou k hráčovi, hokejka von. */
@@ -124,7 +125,7 @@ class SideBlockView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    this.defender = new Defender(r, r.geometry.playerRed, r.material.sideBlockZone);
+    this.defender = new Defender(r, r.geometry.playerOpponent, r.material.sideBlockZone);
     this.defender.addTo(this.group);
   }
 
@@ -149,8 +150,8 @@ class DoubleBlockView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     const m = r.material;
-    this.left = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
-    this.right = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
+    this.left = new Defender(r, r.geometry.playerOpponent, m.doubleBlockZone);
+    this.right = new Defender(r, r.geometry.playerOpponent, m.doubleBlockZone);
     this.left.addTo(this.group);
     this.right.addTo(this.group);
     this.window = mesh(r.geometry.plane, m.gapWindow, 4);
@@ -165,7 +166,7 @@ class DoubleBlockView implements ObstacleView {
     const gr = o.gapX + o.gapW / 2;
     this.left.set(-c.outerX, gl, gl, o.height, c.depth);
     this.right.set(gr, c.outerX, gr, o.height, c.depth);
-    // Zelené „okno“ vo výške hlavy: tadiaľto musí ísť hlava.
+    // Slabé „okno“ vo výške hlavy: tadiaľto musí ísť hlava.
     const y0 = eyeHeight * 0.55;
     const y1 = o.height;
     this.window.position.set(o.gapX, (y0 + y1) / 2, 0);
@@ -175,12 +176,13 @@ class DoubleBlockView implements ObstacleView {
   }
 }
 
-/** Zelený pruh so šípkami na zemi: sem patrí puk. */
+/** Modrá farba na zemi (ako modrá čiara na ľade): sem patrí puk. */
 function setGapStrip(m: Mesh, gapX: number, gapW: number): void {
   m.position.set(gapX, 0.008, 0);
   m.scale.set(Math.max(0.05, gapW - 0.04), 1, 0.5);
 }
 
+/** Nízka prekážka: hokejka ležiaca na zemi z jednej strany. */
 class LowBarView implements ObstacleView {
   readonly kind = 'lowBar' as const;
   readonly group = new Group();
@@ -191,7 +193,7 @@ class LowBarView implements ObstacleView {
   constructor(r: Resources) {
     const g = r.geometry;
     const m = r.material;
-    this.bar = mesh(g.rod, m.lowBar);
+    this.bar = mesh(g.stick, m.lowBar);
     this.strip = mesh(g.floorPlane, m.gapStrip, 3);
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
     this.group.add(this.shadow, this.strip, this.bar);
@@ -199,9 +201,10 @@ class LowBarView implements ObstacleView {
 
   bind(o: Obstacle): void {
     const len = o.x1 - o.x0;
-    const d = o.height;
-    this.bar.position.set((o.x0 + o.x1) / 2, d / 2, 0);
-    this.bar.scale.set(len, d, d);
+    const center = (o.x0 + o.x1) / 2;
+    // Hokejka leží na zemi, čepeľ smeruje k medzere (stred plochy).
+    this.bar.position.set(center, 0, 0);
+    this.bar.scale.set((center < 0 ? 1 : -1) * len, 1, 1);
     setGapStrip(this.strip, o.gapX, o.gapW);
     setShadow(this.shadow, (o.x0 + o.x1) / 2, len * 1.05, 0.2);
   }
@@ -358,11 +361,12 @@ class WideDangleView implements ObstacleView {
   }
 }
 
-/** Hviezdy na zemi (ploché, pokojné). */
+/** „Hviezdy“: puky na červených bodoch buly, cez ktoré prevedieš svoj puk. */
 class StarsView implements ObstacleView {
   readonly kind = 'stars' as const;
   readonly group = new Group();
-  private readonly stars: Mesh[] = [];
+  private readonly spots: Mesh[] = [];
+  private readonly pucks: Mesh[] = [];
   private count = 0;
 
   constructor(
@@ -370,9 +374,11 @@ class StarsView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
-      const star = mesh(r.geometry.star, r.material.star, 3);
-      this.stars.push(star);
-      this.group.add(star);
+      const spot = mesh(r.geometry.star, r.material.star, 3);
+      const puck = mesh(r.geometry.puck, r.material.puck);
+      this.spots.push(spot);
+      this.pucks.push(puck);
+      this.group.add(spot, puck);
     }
   }
 
@@ -381,17 +387,22 @@ class StarsView implements ObstacleView {
     this.count = o.elemCount;
     for (let i = 0; i < MAX_ELEMENTS; i++) {
       const used = i < o.elemCount;
-      this.stars[i]!.visible = used;
+      this.spots[i]!.visible = used;
+      this.pucks[i]!.visible = used;
       if (!used) continue;
-      this.stars[i]!.position.set(o.elemX[i]!, 0.012, o.elemDz[i]!);
-      this.stars[i]!.scale.setScalar(radius);
+      this.spots[i]!.position.set(o.elemX[i]!, 0.006, o.elemDz[i]!);
+      this.spots[i]!.scale.setScalar(radius);
+      this.pucks[i]!.position.set(o.elemX[i]!, 0.007, o.elemDz[i]!);
+      this.pucks[i]!.rotation.y = i * 1.3;
     }
   }
 
   update(o: Obstacle, z: number): void {
     const d = this.cfg.obstacles.spawnDistance;
     for (let i = 0; i < this.count; i++) {
-      this.stars[i]!.visible = pending(o, i) && elementVisible(z, o.elemDz[i]!, d);
+      const visible = pending(o, i) && elementVisible(z, o.elemDz[i]!, d);
+      this.spots[i]!.visible = visible;
+      this.pucks[i]!.visible = visible;
     }
   }
 }
@@ -400,8 +411,7 @@ class StarsView implements ObstacleView {
 class PokeCheckView implements ObstacleView {
   readonly kind = 'pokeCheck' as const;
   readonly group = new Group();
-  private readonly shaft: Mesh;
-  private readonly blade: Mesh;
+  private readonly stick: Mesh;
   private readonly strip: Mesh;
   private readonly shadow: Mesh;
   private len = 1;
@@ -414,16 +424,14 @@ class PokeCheckView implements ObstacleView {
     const m = r.material;
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
     this.strip = mesh(g.floorPlane, m.gapStrip, 3);
-    this.shaft = mesh(g.box, m.stick);
-    this.blade = mesh(g.box, m.stick);
-    this.group.add(this.shadow, this.strip, this.shaft, this.blade);
+    this.stick = mesh(g.stick, m.stick);
+    this.group.add(this.shadow, this.strip, this.stick);
   }
 
   bind(o: Obstacle): void {
     this.len = o.x1 - o.x0;
-    const t = 0.035;
-    this.shaft.scale.set(this.len, t, t);
-    this.blade.scale.set(0.3, 0.045, 0.09);
+    // Čepeľ vpredu v smere presunu (na strane opačnej ako konečná medzera).
+    this.stick.scale.set(-o.side * this.len, 1, 1);
     this.shadow.scale.set(this.len * 1.05, 1, 0.22);
   }
 
@@ -431,9 +439,7 @@ class PokeCheckView implements ObstacleView {
     this.group.visible = pending(o, 0);
     const cx = pokeCheckCenter(o, z);
     const half = this.len / 2;
-    this.shaft.position.set(cx, 0.02, 0);
-    // Čepeľ vpredu v smere presunu (na strane opačnej ako konečná medzera).
-    this.blade.position.set(cx - o.side * (half - 0.15), 0.025, 0.06);
+    this.stick.position.set(cx, 0, 0);
     this.shadow.position.set(cx, 0.006, 0);
     // Medzera na strane, kde bude na konci: postupne sa otvára.
     const w = this.cfg.playArea.width / 2;

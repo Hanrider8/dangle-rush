@@ -1,4 +1,5 @@
-import { DirectionalLight, Group, HemisphereLight, PerspectiveCamera, Scene } from 'three';
+import { DirectionalLight, Group, HemisphereLight, PMREMGenerator, PerspectiveCamera, Scene, type WebGLRenderer } from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { PlayFrame } from '../core/playFrame';
 
 export interface SceneRig {
@@ -20,13 +21,24 @@ export function createScene(): SceneRig {
   playRoot.name = 'playRoot';
   scene.add(playRoot);
 
-  // Lacné osvetlenie bez tieňov: stačí na tvar low-poly prekážok.
-  scene.add(new HemisphereLight(0xffffff, 0x3a4a5c, 2.2));
-  const sun = new DirectionalLight(0xffffff, 1.6);
-  sun.position.set(1.5, 4, 2);
+  // Osvetlenie bez tieňových máp: obloha/podlaha a „strop“ zhora spredu; odrazy dá prostredie (applyEnvironment).
+  scene.add(new HemisphereLight(0xffffff, 0x50555c, 0.7));
+  const sun = new DirectionalLight(0xffffff, 1.8);
+  sun.position.set(1.2, 4, 2.5);
   scene.add(sun);
 
   return { scene, camera, playRoot };
+}
+
+/**
+ * Osvetlenie z prostredia pre fyzikálne materiály (RoomEnvironment, raz pri štarte): lesk helmy,
+ * hokejky a puku a mäkké svetlo na dresoch, akoby boli v miestnosti s hráčom.
+ */
+export function applyEnvironment(renderer: WebGLRenderer, scene: Scene): void {
+  const pmrem = new PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.8;
+  pmrem.dispose();
 }
 
 /** Prenesie transformáciu herného priestoru na skupinu playRoot. */

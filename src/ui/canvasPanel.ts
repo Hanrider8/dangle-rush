@@ -16,7 +16,12 @@ import {
 } from 'three';
 import type { Rect3 } from '../core/types';
 
-export const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif';
+/**
+ * Úzke športové písmo: na Queste (Android) je systémové Roboto Condensed („sans-serif-condensed“),
+ * inde náhrada. Žiadne externé fonty.
+ */
+export const FONT_FAMILY =
+  '"Roboto Condensed", sans-serif-condensed, "Arial Narrow", "Segoe UI", Roboto, system-ui, sans-serif';
 
 /** Zdieľaná jednotková rovina pre všetky panely. */
 export const UNIT_PLANE = new PlaneGeometry(1, 1);
@@ -150,12 +155,32 @@ export function fitText(
   ctx.fillText(text, x, y);
 }
 
+/** Paleta UI ako v televíznom prenose hokeja: tmavomodrý panel, biele písmo, zlatý akcent, červený pás. */
 export const COLORS = {
-  panelBg: 'rgba(10, 18, 32, 0.84)',
-  panelBorder: 'rgba(120, 210, 255, 0.85)',
-  text: '#f2f7ff',
-  muted: '#a9bdd6',
-  accent: '#2bff88',
-  warn: '#ffb347',
-  danger: '#ff4d6d',
+  panelBg: 'rgba(8, 20, 44, 0.86)',
+  panelBorder: 'rgba(255, 255, 255, 0.16)',
+  text: '#ffffff',
+  muted: '#a3b4cc',
+  accent: '#ffc72c',
+  stripe: '#e4002b',
+  warn: '#ff9f1a',
+  danger: '#e4002b',
 };
+
+/** Polomer rohov panelov voči ich výške (hranatejší vzhľad). */
+export const CORNER = 0.07;
+
+/** Tenký červený pás pri hornej hrane panelu (vľavo), ako v televíznej grafike. */
+export function accentTick(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color = COLORS.stripe): void {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+/** Text s rozostupom písmen (popisky verzálkami); kde prehliadač letterSpacing nepozná, kreslí sa bez neho. */
+export function spacedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, spacingPx: number): void {
+  const c = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+  const before = c.letterSpacing;
+  if (before !== undefined) c.letterSpacing = `${spacingPx}px`;
+  ctx.fillText(text, x, y);
+  if (before !== undefined) c.letterSpacing = before;
+}

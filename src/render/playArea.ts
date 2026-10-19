@@ -63,7 +63,7 @@ class FloorLines {
   }
 }
 
-const FILL_OPACITY = 0.16;
+const FILL_OPACITY = 0.08;
 /** Ako rýchlo sa plocha skryje alebo zobrazí (s). */
 const FADE_TIME = 0.5;
 
@@ -81,7 +81,7 @@ export class PlayAreaView {
     this.root.name = 'playArea';
 
     this.fillMaterial = new MeshBasicMaterial({
-      color: 0x5cc8ff,
+      color: 0xbcd6ff,
       transparent: true,
       opacity: FILL_OPACITY,
       depthWrite: false,
@@ -93,12 +93,22 @@ export class PlayAreaView {
     fill.renderOrder = 1;
     this.root.add(fill);
 
-    const lines = new FloorLines([0.75, 0.95, 1]);
+    const lines = new FloorLines([0.95, 0.97, 1]);
     // Obvod plochy.
-    lines.segment(-w / 2, near, w / 2, near, 0.02, 0.7);
-    lines.segment(-w / 2, far, w / 2, far, 0.02, 0.7);
-    lines.segment(-w / 2, near, -w / 2, far, 0.02, 0.7);
-    lines.segment(w / 2, near, w / 2, far, 0.02, 0.7);
+    lines.segment(-w / 2, near, w / 2, near, 0.012, 0.75);
+    lines.segment(-w / 2, far, w / 2, far, 0.012, 0.75);
+    lines.segment(-w / 2, near, -w / 2, far, 0.012, 0.75);
+    lines.segment(w / 2, near, w / 2, far, 0.012, 0.75);
+    // Rohové značky (hrubšie), ako na tréningovej ploche.
+    for (const [x, z, dx, dz] of [
+      [-w / 2, near, 1, -1],
+      [w / 2, near, -1, -1],
+      [-w / 2, far, 1, 1],
+      [w / 2, far, -1, 1],
+    ] as const) {
+      lines.segment(x, z, x + dx * 0.12, z, 0.03, 0.95);
+      lines.segment(x, z, x, z + dz * 0.12, 0.03, 0.95);
+    }
     // Stred plochy: sem patrí puk na začiatku.
     lines.ring(0, -centerDistance, 0.07, 0.012, 0.8);
     lines.segment(-0.03, -centerDistance, 0.03, -centerDistance, 0.008, 0.8);

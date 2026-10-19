@@ -59,7 +59,7 @@ export class GazeCursor {
     this.ring = new Mesh(
       new PlaneGeometry(0.07, 0.07),
       new ShaderMaterial({
-        uniforms: { uProgress: { value: 0 }, uColor: { value: new Color(0x2bff88) } },
+        uniforms: { uProgress: { value: 0 }, uColor: { value: new Color(0xffc72c) } },
         vertexShader: ringVertex,
         fragmentShader: ringFragment,
         transparent: true,

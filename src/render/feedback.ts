@@ -107,17 +107,19 @@ export class FloorFeedback {
         a.position.set(x, 0, 0);
         a.scale.set(c.coneGate.coneRadius, c.coneGate.coneHeight, c.coneGate.coneRadius);
         break;
-      case 'lowBar':
-        a.geometry = g.rod;
-        a.position.set((o.x0 + o.x1) / 2, o.height / 2, 0);
-        a.scale.set(o.x1 - o.x0, o.height, o.height);
+      case 'lowBar': {
+        const center = (o.x0 + o.x1) / 2;
+        a.geometry = g.stick;
+        a.position.set(center, 0, 0);
+        a.scale.set((center < 0 ? 1 : -1) * (o.x1 - o.x0), 1, 1);
         original = PALETTE.lowBar;
         e.ringX = o.gapX;
         break;
+      }
       case 'pokeCheck':
-        a.geometry = g.box;
-        a.position.set(o.sweepTo, 0.02, 0);
-        a.scale.set(o.x1 - o.x0, 0.035, 0.035);
+        a.geometry = g.stick;
+        a.position.set(o.sweepTo, 0, 0);
+        a.scale.set(-o.side * (o.x1 - o.x0), 1, 1);
         original = PALETTE.stick;
         e.ringX = o.gapX;
         break;
