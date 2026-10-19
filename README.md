@@ -5,7 +5,7 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 V hlavnom menu sú dve hry:
 
 - **DangleRush**: prekážky idú k tebe a ty cez ne prevádzaš puk (popis nižšie).
-- **Deker**: podľa tréningovej podložky. Pred tebou leží nehybná podložka so 6 svetlami (2 rady × 3). Vždy jedno svetlo svieti a krúžok okolo neho sa sťahuje, kým nevyprší čas. Keď cezeň prevedieš puk, zazelená sa, dostaneš body a rozsvieti sa ďalšie svetlo.
+- **Deker**: podľa tréningovej podložky. Pred tebou leží nehybná podložka (1,6 × 1,0 m). Na náhodnom mieste sa rozsvieti svetlo, vždy aspoň 40 cm od predošlého svetla aj od puku, a krúžok okolo neho sa sťahuje, kým nevyprší čas. Keď cezeň prevedieš puk, zazelená sa, dostaneš body a rozsvieti sa ďalšie svetlo.
   - Rýchlejší zásah dá až 2× viac bodov a séria zásahov zvyšuje násobiteľ.
   - Kolo trvá 60 s. Čas na jedno svetlo závisí od obtiažnosti: od 4 s na rozcvičke po 1,2 s na pro.
   - Rekord sa vedie pre každú obtiažnosť zvlášť.

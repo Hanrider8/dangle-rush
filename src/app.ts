@@ -227,15 +227,15 @@ export class App {
         break;
       case 'dekerHit':
         sfx.chime(this.game.deker.combo);
-        this.deker.flash(e.n, 'hit');
+        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'hit');
         break;
       case 'dekerMiss':
         sfx.miss();
-        this.deker.flash(e.n, 'miss');
+        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'miss');
         break;
       case 'dekerPass':
         sfx.swoosh(0.35);
-        this.deker.flash(e.n, 'pass');
+        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'pass');
         break;
       case 'signal':
         sfx.call();

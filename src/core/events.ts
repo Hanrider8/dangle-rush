@@ -31,8 +31,8 @@ export type GameEventType =
   /** Hlava hore: spoluhráč stále čaká, naliehavé pripomenutie (n = eskalácia v %). */
   | 'signalNag'
   /**
-   * Deker (n = index svetla): svetlo sa rozsvietilo / puk ním prešiel / limit vypršal, hoci kamera puk
-   * videla / limit vypršal bez puku (rytmus bez kamery).
+   * Deker (n = poradie svetla): svetlo sa rozsvietilo / puk ním prešiel / limit vypršal, hoci kamera puk
+   * videla / limit vypršal bez puku (rytmus bez kamery). Poloha posúdeného svetla je v DekerSim.lastX/lastZ.
    */
   | 'dekerTarget'
   | 'dekerHit'

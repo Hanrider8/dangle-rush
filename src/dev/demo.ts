@@ -155,10 +155,9 @@ export class DemoPilot {
   private playDeker(dt: number): void {
     const game = this.app.game;
     const deker = game.deker;
-    const pad = deker.target >= 0 && deker.targetAge >= DEKER_REACTION ? CONFIG.deker.pads[deker.target] : undefined;
-    if (pad) {
-      const dx = pad.x - this.puckX;
-      const dz = pad.z - this.puckZ;
+    if (deker.lit && deker.targetAge >= DEKER_REACTION) {
+      const dx = deker.targetX - this.puckX;
+      const dz = deker.targetZ - this.puckZ;
       const dist = Math.hypot(dx, dz);
       const step = Math.min(dist, PUCK_SPEED * dt);
       if (dist > 1e-6) {

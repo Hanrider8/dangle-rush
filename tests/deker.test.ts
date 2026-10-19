@@ -9,7 +9,7 @@ import { headAt, makeGame, press, run, standing, startPlaying } from './helpers'
 
 const DT = CONFIG.sim.fixedDt;
 const D = CONFIG.deker;
-/** Stred podložky: ďaleko od všetkých svetiel. */
+/** Stred podložky: puk tu čaká, kým sa nerozsvieti svetlo (svetlo sa rozsvieti aspoň minJump odtiaľto). */
 const AWAY = { x: 0, z: -D.mat.centerDistance };
 
 function makeSim(seed = 1, difficulty: Difficulty = 'easy') {
@@ -24,11 +24,8 @@ function puckAt(x: number, z: number, age = 0): PuckSample {
 }
 
 /** Puk, ktorý príde na svietiace svetlo `delay` s po jeho rozsvietení (inak leží v strede podložky). */
-function follow(target: number, targetAge: number, delay: number): PuckSample {
-  if (target >= 0 && targetAge >= delay) {
-    const p = D.pads[target]!;
-    return puckAt(p.x, p.z);
-  }
+function follow(sim: DekerSim, delay: number): PuckSample {
+  if (sim.lit && sim.targetAge >= delay) return puckAt(sim.targetX, sim.targetZ);
   return puckAt(AWAY.x, AWAY.z);
 }
 
@@ -45,58 +42,104 @@ function advance(sim: DekerSim, events: EventQueue, seconds: number, puck?: Puck
   return out;
 }
 
-/** Krokuje, kým sa nerozsvieti svetlo (vráti jeho index). */
-function untilLit(sim: DekerSim, events: EventQueue, puck?: PuckInput): number {
-  for (let i = 0; i < 10000 && sim.target < 0; i++) advance(sim, events, DT, puck);
-  return sim.target;
+/** Krokuje a zapisuje polohy rozsvietených svetiel. */
+function lights(sim: DekerSim, events: EventQueue, seconds: number, puck?: PuckInput): { x: number; z: number }[] {
+  const out: { x: number; z: number }[] = [];
+  const steps = Math.round(seconds / DT);
+  for (let i = 0; i < steps; i++) {
+    sim.step(DT, typeof puck === 'function' ? puck(sim) : puck);
+    events.drain((e) => {
+      if (e.type === 'dekerTarget') out.push({ x: sim.targetX, z: sim.targetZ });
+    });
+  }
+  return out;
 }
 
-const targets = (events: GameEvent[]) => events.filter((e) => e.type === 'dekerTarget').map((e) => e.n);
+/** Krokuje, kým sa nerozsvieti svetlo (vráti jeho poradie). */
+function untilLit(sim: DekerSim, events: EventQueue, puck?: PuckInput): number {
+  for (let i = 0; i < 10000 && !sim.lit; i++) advance(sim, events, DT, puck);
+  return sim.shown;
+}
+
+const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
 
 describe('Deker: svetlá', () => {
   it('prvé svetlo sa rozsvieti po firstDelay', () => {
     const { sim, events } = makeSim();
     advance(sim, events, D.firstDelay - 2 * DT);
-    expect(sim.target).toBe(-1);
+    expect(sim.lit).toBe(false);
     const e = advance(sim, events, 3 * DT);
-    expect(sim.target).toBeGreaterThanOrEqual(0);
-    expect(targets(e)).toEqual([sim.target]);
+    expect(sim.lit).toBe(true);
+    expect(e.filter((x) => x.type === 'dekerTarget').map((x) => x.n)).toEqual([1]);
   });
 
-  it('to isté svetlo sa nikdy nerozsvieti dvakrát za sebou a bez puku idú v rytme bez bodov', () => {
+  it('svetlo je na náhodnom mieste podložky, vždy aspoň minJump od predošlého; bez puku v rytme bez bodov', () => {
     for (let seed = 1; seed <= 30; seed++) {
       const { sim, events } = makeSim(seed);
-      const e = advance(sim, events, D.roundTime + 1);
-      const seq = targets(e);
-      for (let i = 1; i < seq.length; i++) expect(seq[i]).not.toBe(seq[i - 1]);
-      expect(new Set(seq).size).toBeGreaterThan(2);
+      const seq = lights(sim, events, D.roundTime + 1);
+      for (const p of seq) {
+        expect(p.x).toBeGreaterThanOrEqual(sim.minX);
+        expect(p.x).toBeLessThanOrEqual(sim.maxX);
+        expect(p.z).toBeGreaterThanOrEqual(sim.minZ);
+        expect(p.z).toBeLessThanOrEqual(sim.maxZ);
+      }
+      for (let i = 1; i < seq.length; i++) expect(dist(seq[i]!, seq[i - 1]!)).toBeGreaterThanOrEqual(D.minJump);
       // Rytmus: svetlo svieti celý limit, potom krátka medzera.
       expect(seq.length).toBe(Math.ceil((D.roundTime - D.firstDelay) / (sim.timeout + D.gapTime)));
-      expect(sim.passes).toBe(seq.length - (sim.target >= 0 ? 1 : 0));
+      expect(sim.passes).toBe(seq.length - (sim.lit ? 1 : 0));
       expect(sim.score).toBe(0);
       expect(sim.misses).toBe(0);
-      expect(e.some((x) => x.type === 'dekerHit' || x.type === 'dekerMiss')).toBe(false);
       expect(sim.finished).toBe(true);
     }
+  });
+
+  it('svetlá pokryjú celú podložku, nie len pár pevných miest', () => {
+    const all: { x: number; z: number }[] = [];
+    for (let seed = 1; seed <= 10; seed++) {
+      const { sim, events } = makeSim(seed, 'pro');
+      all.push(...lights(sim, events, D.roundTime));
+    }
+    const { sim } = makeSim();
+    const near = 0.12;
+    expect(all.some((p) => p.x < sim.minX + near)).toBe(true);
+    expect(all.some((p) => p.x > sim.maxX - near)).toBe(true);
+    expect(all.some((p) => p.z < sim.minZ + near)).toBe(true);
+    expect(all.some((p) => p.z > sim.maxZ - near)).toBe(true);
+    expect(all.some((p) => Math.abs(p.x) < near)).toBe(true);
+    // Rôzne miesta (na centimetre).
+    expect(new Set(all.map((p) => `${Math.round(p.x * 100)}:${Math.round(p.z * 100)}`)).size).toBeGreaterThan(all.length * 0.9);
   });
 
   it('rovnaký seed dá rovnaké svetlá', () => {
     const a = makeSim(5);
     const b = makeSim(5);
     const c = makeSim(6);
-    const ta = targets(advance(a.sim, a.events, 30));
-    expect(targets(advance(b.sim, b.events, 30))).toEqual(ta);
-    expect(targets(advance(c.sim, c.events, 30))).not.toEqual(ta);
+    const la = lights(a.sim, a.events, 30);
+    expect(lights(b.sim, b.events, 30)).toEqual(la);
+    expect(lights(c.sim, c.events, 30)).not.toEqual(la);
   });
 
-  it('nerozsvieti svetlo, na ktorom puk práve leží', () => {
+  it('svetlo sa nerozsvieti pri puku (aspoň minJump od neho)', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const { sim, events } = makeSim(seed);
-      const p = D.pads[0]!;
-      const seq = targets(advance(sim, events, D.roundTime, puckAt(p.x, p.z)));
+      const puck = { x: 0.25 * ((seed % 5) - 2), z: -0.5 };
+      const seq = lights(sim, events, D.roundTime, puckAt(puck.x, puck.z));
       expect(seq.length).toBeGreaterThan(5);
-      expect(seq).not.toContain(0);
+      for (const p of seq) expect(dist(p, puck)).toBeGreaterThanOrEqual(D.minJump);
     }
+  });
+
+  it('miesto pre svetlá je na podložke a dosť veľké na skok minJump', () => {
+    const { sim } = makeSim();
+    const { width, depth, centerDistance } = D.mat;
+    expect(sim.minX - D.padRadius).toBeGreaterThanOrEqual(-width / 2);
+    expect(sim.maxX + D.padRadius).toBeLessThanOrEqual(width / 2);
+    expect(sim.minZ - D.padRadius).toBeGreaterThanOrEqual(-centerDistance - depth / 2);
+    expect(sim.maxZ + D.padRadius).toBeLessThanOrEqual(-centerDistance + depth / 2);
+    // Nové svetlo nikdy nie je pod pukom a z ktoréhokoľvek miesta sa dá skočiť aspoň o minJump.
+    expect(D.minJump).toBeGreaterThan(D.hitRadius);
+    expect(sim.maxX - sim.minX).toBeGreaterThan(2 * D.minJump);
+    expect(sim.maxZ - sim.minZ).toBeGreaterThan(D.minJump);
   });
 });
 
@@ -104,22 +147,24 @@ describe('Deker: zásahy a body', () => {
   it('puk na svetle: zásah, body, combo a reakcia; potom ďalšie svetlo', () => {
     const { sim, events } = makeSim();
     const lit = untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-    const e = advance(sim, events, 0.5, (s) => follow(s.target, s.targetAge, 0.3));
+    const at = { x: sim.targetX, z: sim.targetZ };
+    const e = advance(sim, events, 0.5, (s) => follow(s, 0.3));
     const hit = e.find((x) => x.type === 'dekerHit');
     expect(hit?.n).toBe(lit);
+    expect({ x: sim.lastX, z: sim.lastZ }).toEqual(at);
     expect(sim.hits).toBe(1);
     expect(sim.combo).toBe(1);
     expect(sim.score).toBeGreaterThan(D.scorePerHit);
     expect(sim.reactionSum).toBeCloseTo(0.3, 1);
-    const next = untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-    expect(next).not.toBe(lit);
+    expect(untilLit(sim, events, puckAt(AWAY.x, AWAY.z))).toBe(lit + 1);
+    expect(dist({ x: sim.targetX, z: sim.targetZ }, at)).toBeGreaterThanOrEqual(D.minJump);
   });
 
   it('rýchlejší zásah dá viac bodov', () => {
     const score = (delay: number) => {
       const { sim, events } = makeSim(3);
       untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-      advance(sim, events, delay + 0.1, (s) => follow(s.target, s.targetAge, delay));
+      advance(sim, events, delay + 0.1, (s) => follow(s, delay));
       expect(sim.hits).toBe(1);
       return sim.score;
     };
@@ -138,7 +183,7 @@ describe('Deker: zásahy a body', () => {
     for (let i = 0; i <= step; i++) {
       untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
       before = sim.score;
-      advance(sim, events, 0.3, (s) => follow(s.target, s.targetAge, 0.2));
+      advance(sim, events, 0.3, (s) => follow(s, 0.2));
       gain = sim.score - before;
     }
     expect(sim.combo).toBe(step + 1);
@@ -149,8 +194,8 @@ describe('Deker: zásahy a body', () => {
 
   it('záber puku spred rozsvietenia sa neráta', () => {
     const { sim, events } = makeSim(4);
-    const lit = untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-    const p = D.pads[lit]!;
+    untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
+    const p = { x: sim.targetX, z: sim.targetZ };
     // Kamera ukazuje puk na svetle, ale záber je 0,35 s starý (urobený ešte pred rozsvietením).
     advance(sim, events, 0.2, puckAt(p.x, p.z, 0.35));
     expect(sim.hits).toBe(0);
@@ -162,7 +207,7 @@ describe('Deker: zásahy a body', () => {
   it('limit vypršal, hoci kamera puk videla: minutie a combo sa vynuluje', () => {
     const { sim, events } = makeSim(2);
     untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-    advance(sim, events, 0.3, (s) => follow(s.target, s.targetAge, 0.2));
+    advance(sim, events, 0.3, (s) => follow(s, 0.2));
     expect(sim.combo).toBe(1);
     const lit = untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
     const e = advance(sim, events, sim.timeout + DT, puckAt(AWAY.x, AWAY.z));
@@ -175,7 +220,7 @@ describe('Deker: zásahy a body', () => {
   it('limit vypršal bez puku: prechod bez bodov, combo ostane', () => {
     const { sim, events } = makeSim(2);
     untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
-    advance(sim, events, 0.3, (s) => follow(s.target, s.targetAge, 0.2));
+    advance(sim, events, 0.3, (s) => follow(s, 0.2));
     const score = sim.score;
     untilLit(sim, events);
     const e = advance(sim, events, sim.timeout + DT);
@@ -192,23 +237,11 @@ describe('Deker: zásahy a body', () => {
     }
     expect(D.targetTime.pro).toBeLessThan(D.targetTime.warmup);
   });
-
-  it('svetlá sú na podložke a ďaleko od seba (puk nemôže byť na dvoch naraz)', () => {
-    const { width, depth, centerDistance } = D.mat;
-    for (const p of D.pads) {
-      expect(Math.abs(p.x) + D.padRadius).toBeLessThanOrEqual(width / 2);
-      expect(Math.abs(p.z + centerDistance) + D.padRadius).toBeLessThanOrEqual(depth / 2);
-      for (const q of D.pads) {
-        if (p !== q) expect(Math.hypot(p.x - q.x, p.z - q.z)).toBeGreaterThan(2 * D.hitRadius);
-      }
-    }
-    expect(Math.hypot(AWAY.x - D.pads[1]!.x, AWAY.z - D.pads[1]!.z)).toBeGreaterThan(D.hitRadius);
-  });
 });
 
 /** Puk pre hru: ide na svietiace svetlo 0,4 s po rozsvietení. */
 function gamePuck(game: Game, out: PuckSample = createPuckSample()): PuckSample {
-  const p = follow(game.deker.target, game.deker.targetAge, 0.4);
+  const p = follow(game.deker, 0.4);
   out.valid = true;
   out.x = p.x;
   out.z = p.z;

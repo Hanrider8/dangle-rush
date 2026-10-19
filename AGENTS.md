@@ -59,8 +59,9 @@ src/config.ts   VŠETKY laditeľné konštanty (rozmery, rýchlosti, dwell, mix 
 src/core/       čistá logika: bez three.js a DOM, deterministická, fixný krok 1/120 s, bez alokácií v update
   game.ts       stavový automat SETUP/READY/COUNTDOWN/PLAYING/PAUSED/GAME_OVER + podpanely, fixný krok;
                 režim hry `mode` (rush/deker), Menu → READY
-  deker.ts      DekerSim (režim Deker): svetlá na podložke (config.deker), zásah pukom, limit podľa obtiažnosti,
-                minutie / prechod bez kamery, kolo roundTime
+  deker.ts      DekerSim (režim Deker): svetlo na náhodnom mieste podložky (config.deker: edgeMargin od okraja,
+                minJump od predošlého svetla aj puku), zásah pukom, limit podľa obtiažnosti, minutie / prechod
+                bez kamery, kolo roundTime
   gaze.ts       dwell, hysteréza, grace, cooldown, „arming“ tlačidiel, kurzor
   layout.ts     pozície panelov a tlačidiel (v stupňoch od kotvy; predná kotva a kotva pauzy)
   sim.ts        GameplaySim: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre (krokuje sa len v PLAYING)
@@ -74,7 +75,8 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   playFrame.ts  herný priestor ↔ svet (centrovanie: pozícia + yaw hlavy)
   events.ts     predalokovaný ring buffer udalostí (core → audio a efekty); floorHit/floorMiss/floorPass majú
                 n = id prekážky × MAX_ELEMENTS + prvok, passBody n = id prekážky, signal/signalSeen
-                n = poradie spoluhráča, signalNag n = eskalácia v %, dekerTarget/Hit/Miss/Pass n = index svetla
+                n = poradie spoluhráča, signalNag n = eskalácia v %, dekerTarget/Hit/Miss/Pass n = poradie svetla
+                (poloha posúdeného svetla v DekerSim.lastX/lastZ)
 src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/tracking*, calibration.test.ts,
                 colorLearn.test.ts)
   detector.ts   farebná škvrna v RGBA (HSV prah + súvislé oblasti), zelený biscuit / oranžová loptička

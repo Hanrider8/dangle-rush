@@ -1,11 +1,10 @@
 /**
- * Režim Deker: podložka na podlahe (jemná výplň, obrys a rohové značky) a na nej svetlá (config.deker.pads).
- * - Nesvietiace svetlo: tlmená škvrna s krúžkom.
- * - Svietiace: pulzujúca svetelná škvrna (rovnaký vzhľad ako navádzanie puku) a druhý krúžok, ktorý sa
- *   počas limitu sťahuje k svetlu (koľko času zostáva).
+ * Režim Deker: podložka na podlahe (jemná výplň, obrys a rohové značky) a na nej svetlo na náhodnom mieste.
+ * - Svietiace svetlo: pulzujúca svetelná škvrna (rovnaký vzhľad ako navádzanie puku) a druhý krúžok, ktorý
+ *   sa počas limitu sťahuje k svetlu (koľko času zostáva).
  * - Zásah: zelený záblesk a rozplývajúci sa krúžok; minutie: sivé zhasnutie; bez kamery rýchle zhasnutie.
  * Podložka je takmer priehľadná: virtuálna vrstva v passthrough by inak prekryla skutočný puk.
- * Každé svetlo má vlastné materiály záblesku (priehľadnosť zvlášť); v slučke sa nič nealokuje.
+ * Záblesky sú malý pool s vlastnými materiálmi (priehľadnosť zvlášť); v slučke sa nič nealokuje.
  */
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, type BufferGeometry } from 'three';
 import type { Config } from '../config';
@@ -20,44 +19,39 @@ const START_OPACITY: Record<DekerFlash, number> = { hit: 0.95, miss: 0.75, pass:
 /** Krúžok v textúre navádzania má polomer 0,2 šírky textúry. */
 const GUIDE_RING = 0.2;
 const MAT_FILL_OPACITY = 0.05;
-const IDLE_OPACITY = 0.3;
 const PULSE_HZ = 1.6;
+/** Záblesky môžu krátko bežať naraz (zásah a hneď ďalší zásah). */
+const FLASH_POOL = 4;
 
 type FloorMesh = Mesh<BufferGeometry, MeshBasicMaterial>;
 
-class Pad {
+class Flash {
   readonly group = new Group();
-  readonly flashGlow: FloorMesh;
-  readonly flashRing: FloorMesh;
+  readonly glow: FloorMesh;
+  readonly ring: FloorMesh;
   kind: DekerFlash = 'pass';
   time = -1;
 
-  constructor(r: Resources, guide: MeshBasicMaterial, idle: MeshBasicMaterial, x: number, z: number, radius: number) {
-    this.group.position.set(x, 0, z);
-    const size = radius / GUIDE_RING;
-    const idleMesh = new Mesh(r.geometry.floorPlane, idle);
-    idleMesh.scale.set(size, 1, size);
-    idleMesh.position.y = 0.004;
-    idleMesh.renderOrder = 3;
-    this.flashGlow = new Mesh(r.geometry.floorPlane, guide.clone());
-    this.flashGlow.position.y = 0.007;
-    this.flashGlow.renderOrder = 5;
-    this.flashRing = new Mesh(
+  constructor(r: Resources, guide: MeshBasicMaterial) {
+    this.glow = new Mesh(r.geometry.floorPlane, guide.clone());
+    this.glow.position.y = 0.007;
+    this.glow.renderOrder = 5;
+    this.ring = new Mesh(
       r.geometry.ring,
       new MeshBasicMaterial({ color: PALETTE.hit, transparent: true, depthWrite: false, toneMapped: false }),
     );
-    this.flashRing.position.y = 0.008;
-    this.flashRing.renderOrder = 6;
-    this.flashGlow.visible = false;
-    this.flashRing.visible = false;
-    this.group.add(idleMesh, this.flashGlow, this.flashRing);
+    this.ring.position.y = 0.008;
+    this.ring.renderOrder = 6;
+    this.group.add(this.glow, this.ring);
+    this.group.visible = false;
   }
 }
 
 export class DekerView {
   readonly root = new Group();
-  private readonly pads: Pad[] = [];
-  /** Svietiace svetlo: škvrna a krúžok odpočtu (zdieľané, svieti vždy len jedno). */
+  private readonly flashes: Flash[] = [];
+  private next = 0;
+  /** Svietiace svetlo: škvrna a krúžok odpočtu (svieti vždy len jedno). */
   private readonly glow: FloorMesh;
   private readonly timer: FloorMesh;
   private readonly radius: number;
@@ -108,13 +102,10 @@ export class DekerView {
     this.root.add(mat);
 
     const guide = r.material.guide;
-    const idle = guide.clone();
-    idle.color.setHex(0xffffff);
-    idle.opacity = IDLE_OPACITY;
-    for (const p of d.pads) {
-      const pad = new Pad(r, guide, idle, p.x, p.z, d.padRadius);
-      this.pads.push(pad);
-      this.root.add(pad.group);
+    for (let i = 0; i < FLASH_POOL; i++) {
+      const f = new Flash(r, guide);
+      this.flashes.push(f);
+      this.root.add(f.group);
     }
 
     const active = guide.clone();
@@ -135,34 +126,41 @@ export class DekerView {
     this.root.add(this.glow, this.timer);
   }
 
-  /** Záblesk pri zásahu, minutí alebo prechode svetla bez kamery (udalosti dekerHit/Miss/Pass). */
-  flash(index: number, kind: DekerFlash): void {
-    const pad = this.pads[index];
-    if (!pad) return;
-    pad.kind = kind;
-    pad.time = 0;
-    pad.flashGlow.material.color.setHex(kind === 'hit' ? PALETTE.hit : kind === 'miss' ? PALETTE.miss : PALETTE.gap);
-    pad.flashGlow.visible = true;
-    pad.flashRing.visible = kind === 'hit';
-    this.applyFlash(pad);
+  /** Záblesk na mieste posúdeného svetla (udalosti dekerHit/Miss/Pass, poloha z DekerSim.lastX/lastZ). */
+  flash(x: number, z: number, kind: DekerFlash): void {
+    // Voľný záblesk, inak najstarší v poradí.
+    let f = this.flashes[this.next++ % FLASH_POOL]!;
+    for (let i = 0; i < this.flashes.length; i++) {
+      if (this.flashes[i]!.time < 0) {
+        f = this.flashes[i]!;
+        break;
+      }
+    }
+    f.kind = kind;
+    f.time = 0;
+    f.group.position.set(x, 0, z);
+    f.glow.material.color.setHex(kind === 'hit' ? PALETTE.hit : kind === 'miss' ? PALETTE.miss : PALETTE.gap);
+    f.ring.visible = kind === 'hit';
+    f.group.visible = true;
+    this.apply(f);
   }
 
   update(dt: number, game: Game): void {
     const show = game.dekerOn;
     this.root.visible = show;
     if (!show) {
-      for (const pad of this.pads) this.endFlash(pad);
+      for (const f of this.flashes) this.end(f);
       return;
     }
     this.time += dt;
     const deker = game.deker;
     // Po skončení kola (GAME_OVER) už nič nesvieti.
-    const lit = game.state !== 'GAME_OVER' ? deker.target : -1;
-    const pad = lit >= 0 ? this.pads[lit] : undefined;
-    this.glow.visible = pad !== undefined;
-    this.timer.visible = pad !== undefined;
-    if (pad) {
-      const { x, z } = pad.group.position;
+    const lit = deker.lit && game.state !== 'GAME_OVER';
+    this.glow.visible = lit;
+    this.timer.visible = lit;
+    if (lit) {
+      const x = deker.targetX;
+      const z = deker.targetZ;
       this.glow.position.x = x;
       this.glow.position.z = z;
       this.glow.material.opacity = 0.85 + 0.15 * Math.sin(this.time * PULSE_HZ * 2 * Math.PI);
@@ -173,31 +171,30 @@ export class DekerView {
       this.timer.position.z = z;
       this.timer.scale.set(r, 1, r);
     }
-    for (const p of this.pads) {
-      if (p.time < 0) continue;
-      p.time += dt;
-      if (p.time >= DURATION[p.kind]) this.endFlash(p);
-      else this.applyFlash(p);
+    for (const f of this.flashes) {
+      if (f.time < 0) continue;
+      f.time += dt;
+      if (f.time >= DURATION[f.kind]) this.end(f);
+      else this.apply(f);
     }
   }
 
-  private endFlash(pad: Pad): void {
-    pad.time = -1;
-    pad.flashGlow.visible = false;
-    pad.flashRing.visible = false;
+  private end(f: Flash): void {
+    f.time = -1;
+    f.group.visible = false;
   }
 
-  private applyFlash(pad: Pad): void {
-    const t = Math.min(1, pad.time / DURATION[pad.kind]);
-    const fade = START_OPACITY[pad.kind] * (1 - t) * (1 - t);
-    const grow = pad.kind === 'hit' ? 1 + 0.3 * t : 1;
+  private apply(f: Flash): void {
+    const t = Math.min(1, f.time / DURATION[f.kind]);
+    const fade = START_OPACITY[f.kind] * (1 - t) * (1 - t);
+    const grow = f.kind === 'hit' ? 1 + 0.3 * t : 1;
     const size = (this.radius / GUIDE_RING) * grow;
-    pad.flashGlow.scale.set(size, 1, size);
-    pad.flashGlow.material.opacity = fade;
-    if (pad.flashRing.visible) {
+    f.glow.scale.set(size, 1, size);
+    f.glow.material.opacity = fade;
+    if (f.ring.visible) {
       const r = this.radius * (1.2 + 1.4 * t);
-      pad.flashRing.scale.set(r, 1, r);
-      pad.flashRing.material.opacity = 0.8 * (1 - t);
+      f.ring.scale.set(r, 1, r);
+      f.ring.material.opacity = 0.8 * (1 - t);
     }
   }
 }

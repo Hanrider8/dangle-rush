@@ -278,17 +278,17 @@ export const CONFIG = {
     /** Prvé svetlo po štarte a krátka medzera po zásahu alebo minutí, kým sa rozsvieti ďalšie. */
     firstDelay: 0.6,
     gapTime: 0.25,
-    /** Podložka v hernom priestore: šírka (x), hĺbka (z) a vzdialenosť jej stredu pred hráčom. */
-    mat: { width: 1.5, depth: 0.75, centerDistance: 0.6 },
-    /** Svetlá (stred v hernom priestore): 2 rady × 3 stĺpce v dosahu hokejky. */
-    pads: [
-      { x: -0.55, z: -0.38 },
-      { x: 0, z: -0.38 },
-      { x: 0.55, z: -0.38 },
-      { x: -0.55, z: -0.85 },
-      { x: 0, z: -0.85 },
-      { x: 0.55, z: -0.85 },
-    ],
+    /**
+     * Podložka v hernom priestore: šírka (x), hĺbka (z) a vzdialenosť jej stredu pred hráčom
+     * (od 0,2 m pred hráčom po 1,2 m; skutočný SuperDeker má 1,7 × 0,72 m).
+     */
+    mat: { width: 1.6, depth: 1.0, centerDistance: 0.7 },
+    /**
+     * Svetlo sa rozsvieti na náhodnom mieste podložky: stred aspoň edgeMargin od jej okraja a aspoň minJump
+     * od predošlého svetla aj od puku (puk treba naozaj presunúť).
+     */
+    edgeMargin: 0.12,
+    minJump: 0.4,
     padRadius: 0.1,
     /** Zásah: stred puku najviac takto ďaleko od stredu svetla. */
     hitRadius: 0.13,

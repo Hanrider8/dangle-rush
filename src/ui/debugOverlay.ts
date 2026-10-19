@@ -71,7 +71,7 @@ export class DebugOverlay {
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
       game.mode === 'deker'
-        ? `deker ${game.deker.difficulty} · svetlo ${game.deker.target} ${num(game.deker.targetAge, 1)}/${num(game.deker.timeout, 1)} s · ${game.deker.hits}/${game.deker.misses}/${game.deker.passes}`
+        ? `deker ${game.deker.difficulty} · svetlo ${game.deker.lit ? `${num(game.deker.targetX, 2)}; ${num(game.deker.targetZ, 2)} · ${num(game.deker.targetAge, 1)}/${num(game.deker.timeout, 1)} s` : '–'} · ${game.deker.hits}/${game.deker.misses}/${game.deker.passes}`
         : `${sim.difficulty} · ${num(sim.speed, 1)} m/s · vlna ${num(sim.interval, 1)} s · prekážky ${activeCount(sim.obstacles)}`,
       `sklon ${Math.round(pitch)}° · spoluhráč ${headUp.active ? `čaká ${num(headUp.age, 1)} s · eskalácia ${Math.round(headUp.escalation() * 100)} %` : '–'} · zachytení ${headUp.seen}`,
     ];

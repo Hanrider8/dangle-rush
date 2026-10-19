@@ -1,7 +1,9 @@
 /**
- * Režim Deker (podľa tréningovej podložky): plocha stojí, na nej sa rozsvieti jedno zo svetiel
- * (config.deker.pads) a hráč cez neho prevedie puk.
+ * Režim Deker (podľa tréningovej podložky): plocha stojí, na nej sa na náhodnom mieste rozsvieti svetlo
+ * a hráč cez neho prevedie puk.
  *
+ * - Svetlo: náhodne na podložke (config.deker.mat bez edgeMargin pri okraji), aspoň minJump od predošlého
+ *   svetla aj od puku, takže puk treba vždy presunúť.
  * - Zásah: kamera zachytila puk na svetle až po jeho rozsvietení. Body za zásah rastú s rýchlosťou
  *   (okamžitý zásah až (1 + speedBonus) ×) a s combo násobiteľom, potom sa rozsvieti ďalšie svetlo.
  * - Limit (targetTime podľa obtiažnosti): ak kamera počas svietenia puk videla, je to minutie (combo sa
@@ -21,6 +23,8 @@ import type { PuckSample } from './types';
 /** Odvodenie seedu, aby sa náhoda svetiel nemiešala s náhodou spawnera. */
 const SEED_SALT = 0x2c1b3c6d;
 const NO_PUCK: PuckSample = { valid: false, x: 0, z: 0, age: 0 };
+/** Koľko náhodných miest sa skúsi, kým sa nájde dosť vzdialené (potom rohy, nakoniec najvzdialenejšie). */
+const MAX_TRIES = 32;
 
 /** Stav ako obyčajný objekt (testy pauzy a pokračovania, dev nástroje). */
 export interface DekerSnapshot {
@@ -32,14 +36,20 @@ export interface DekerSnapshot {
   misses: number;
   passes: number;
   reactionSum: number;
-  target: number;
+  lit: boolean;
+  targetX: number;
+  targetZ: number;
   targetAge: number;
   shown: number;
   rngState: number;
 }
 
 export class DekerSim {
-  readonly padCount: number;
+  /** Kde sa smie rozsvietiť stred svetla (herný priestor). */
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minZ: number;
+  readonly maxZ: number;
   /** Čistý herný čas kola a jeho dĺžka (s). */
   time = 0;
   duration = 0;
@@ -56,14 +66,22 @@ export class DekerSim {
   passes = 0;
   /** Súčet časov od rozsvietenia po zásah (priemer = reactionSum / hits). */
   reactionSum = 0;
-  /** Index svietiaceho svetla, −1 = medzera medzi svetlami. */
-  target = -1;
+  /** Svieti svetlo (inak je medzera medzi svetlami) a kde. */
+  lit = false;
+  targetX = 0;
+  targetZ = 0;
   /** Ako dlho už svetlo svieti. */
   targetAge = 0;
-  /** Počet rozsvietených svetiel. */
+  /** Počet rozsvietených svetiel (n v udalostiach). */
   shown = 0;
+  /**
+   * Posledné posúdené svetlo (zásah, minutie alebo prechod): render pri udalosti ukáže záblesk na tomto
+   * mieste. Ďalšie svetlo sa rozsvieti až po gapTime, takže pri vyprázdnení udalostí ešte platí.
+   */
+  lastX = 0;
+  lastZ = 0;
 
-  private last = -1;
+  private hasLast = false;
   private gapLeft = 0;
   private sawPuck = false;
   private readonly rng = new Rng(1);
@@ -72,7 +90,13 @@ export class DekerSim {
     private readonly cfg: Config,
     private readonly events: EventQueue,
   ) {
-    this.padCount = cfg.deker.pads.length;
+    const d = cfg.deker;
+    const halfW = d.mat.width / 2 - d.edgeMargin;
+    const halfD = d.mat.depth / 2 - d.edgeMargin;
+    this.minX = -halfW;
+    this.maxX = halfW;
+    this.minZ = -d.mat.centerDistance - halfD;
+    this.maxZ = -d.mat.centerDistance + halfD;
   }
 
   reset(seed: number, difficulty: Difficulty): void {
@@ -88,10 +112,14 @@ export class DekerSim {
     this.misses = 0;
     this.passes = 0;
     this.reactionSum = 0;
-    this.target = -1;
+    this.lit = false;
+    this.targetX = 0;
+    this.targetZ = 0;
     this.targetAge = 0;
     this.shown = 0;
-    this.last = -1;
+    this.lastX = 0;
+    this.lastZ = 0;
+    this.hasLast = false;
     this.gapLeft = d.firstDelay;
     this.sawPuck = false;
     this.rng.state = (seed ^ SEED_SALT) >>> 0;
@@ -105,16 +133,12 @@ export class DekerSim {
     return Math.max(0, this.duration - this.time);
   }
 
-  get rngState(): number {
-    return this.rng.state;
-  }
-
   /** Jeden fixný krok; puck je odhad puku z kamery (neplatný = bez kamery). */
   step(dt: number, puck: PuckSample = NO_PUCK): void {
     if (this.finished) return;
     this.time += dt;
     const usable = puck.valid && puck.age <= this.cfg.puck.maxAge;
-    if (this.target < 0) {
+    if (!this.lit) {
       this.gapLeft -= dt;
       if (this.gapLeft <= 1e-9) this.light(usable ? puck : null);
       return;
@@ -124,7 +148,7 @@ export class DekerSim {
       this.sawPuck = true;
       // Záber spred rozsvietenia sa neráta (kamera vidí puk s oneskorením puck.age).
       const reaction = this.targetAge - puck.age;
-      if (reaction >= 0 && this.onPad(this.target, puck.x, puck.z, this.cfg.deker.hitRadius)) {
+      if (reaction >= 0 && Math.hypot(puck.x - this.targetX, puck.z - this.targetZ) <= this.cfg.deker.hitRadius) {
         this.onHit(reaction);
         return;
       }
@@ -142,52 +166,59 @@ export class DekerSim {
       misses: this.misses,
       passes: this.passes,
       reactionSum: this.reactionSum,
-      target: this.target,
+      lit: this.lit,
+      targetX: this.targetX,
+      targetZ: this.targetZ,
       targetAge: this.targetAge,
       shown: this.shown,
       rngState: this.rng.state,
     };
   }
 
-  private onPad(i: number, x: number, z: number, radius: number): boolean {
-    const p = this.cfg.deker.pads[i]!;
-    return Math.hypot(x - p.x, z - p.z) <= radius;
+  /** Vzdialenosť miesta od predošlého svetla a od puku (menšia z nich; ∞, ak nie je ani jedno). */
+  private clearance(x: number, z: number, puck: PuckSample | null): number {
+    let c = Infinity;
+    if (this.hasLast) c = Math.hypot(x - this.lastX, z - this.lastZ);
+    if (puck) c = Math.min(c, Math.hypot(x - puck.x, z - puck.z));
+    return c;
   }
 
-  /** Svetlo smie svietiť: nie predošlé ani to, na ktorom puk práve leží. */
-  private allowed(i: number, puck: PuckSample | null): boolean {
-    if (i === this.last) return false;
-    return !puck || !this.onPad(i, puck.x, puck.z, this.cfg.deker.hitRadius);
-  }
-
-  private countAllowed(puck: PuckSample | null): number {
-    let n = 0;
-    for (let i = 0; i < this.padCount; i++) if (this.allowed(i, puck)) n++;
-    return n;
-  }
-
-  /** Rozsvieti náhodné povolené svetlo (bez alokácií: k-te povolené v poradí). */
+  /** Rozsvieti svetlo na náhodnom mieste aspoň minJump od predošlého a od puku (bez alokácií). */
   private light(puck: PuckSample | null): void {
-    let candidates = this.countAllowed(puck);
-    if (candidates === 0) {
-      // Žiadne svetlo by nezostalo (napr. jediné svetlo v configu): rozhodne len predošlé svetlo.
-      puck = null;
-      candidates = this.countAllowed(null);
+    let bestX = 0;
+    let bestZ = 0;
+    let best = -1;
+    for (let i = 0; i < MAX_TRIES; i++) {
+      const x = this.rng.range(this.minX, this.maxX);
+      const z = this.rng.range(this.minZ, this.maxZ);
+      const c = this.clearance(x, z, puck);
+      if (c > best) {
+        best = c;
+        bestX = x;
+        bestZ = z;
+      }
+      if (c >= this.cfg.deker.minJump) break;
     }
-    let k = Math.min(candidates - 1, Math.floor(this.rng.next() * candidates));
-    let pick = 0;
-    for (let i = 0; i < this.padCount; i++) {
-      if (!this.allowed(i, puck)) continue;
-      if (k-- === 0) {
-        pick = i;
-        break;
+    // Náhoda nenašla dosť vzdialené miesto (puk aj predošlé svetlo v strede): najvzdialenejší roh.
+    if (best < this.cfg.deker.minJump) {
+      for (let k = 0; k < 4; k++) {
+        const x = k & 1 ? this.maxX : this.minX;
+        const z = k & 2 ? this.maxZ : this.minZ;
+        const c = this.clearance(x, z, puck);
+        if (c > best) {
+          best = c;
+          bestX = x;
+          bestZ = z;
+        }
       }
     }
-    this.target = pick;
+    this.lit = true;
+    this.targetX = bestX;
+    this.targetZ = bestZ;
     this.targetAge = 0;
     this.sawPuck = false;
     this.shown++;
-    this.events.push('dekerTarget', '', pick);
+    this.events.push('dekerTarget', '', this.shown);
   }
 
   private onHit(reaction: number): void {
@@ -198,25 +229,27 @@ export class DekerSim {
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.hits++;
     this.reactionSum += reaction;
-    this.events.push('dekerHit', '', this.target);
     this.endTarget();
+    this.events.push('dekerHit', '', this.shown);
   }
 
   private onTimeout(): void {
-    if (this.sawPuck) {
+    const missed = this.sawPuck;
+    if (missed) {
       this.misses++;
       this.combo = 0;
-      this.events.push('dekerMiss', '', this.target);
     } else {
       this.passes++;
-      this.events.push('dekerPass', '', this.target);
     }
     this.endTarget();
+    this.events.push(missed ? 'dekerMiss' : 'dekerPass', '', this.shown);
   }
 
   private endTarget(): void {
-    this.last = this.target;
-    this.target = -1;
+    this.lastX = this.targetX;
+    this.lastZ = this.targetZ;
+    this.hasLast = true;
+    this.lit = false;
     this.targetAge = 0;
     this.gapLeft = this.cfg.deker.gapTime;
   }
