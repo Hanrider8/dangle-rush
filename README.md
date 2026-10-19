@@ -14,6 +14,7 @@ Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, 
 - **Obrancovia** (hokejisti v červenom a modrom drese) sa vyhodnocujú podľa polohy hlavy; obídený obranca sa zosunie do podlahy:
   - jeden obranca: úkrok alebo náklon na druhú stranu,
   - dvaja obrancovia: hlavou cez medzeru.
+- **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč v zelenom a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
 - Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
 - Vysoká tyč (zohýbanie) je v hre stále naprogramovaná, ale v predvolenom mixe je vypnutá (`spawn.bodyWeights.highBar` v configu).
 

@@ -140,14 +140,18 @@ export function installHooks(app: App, device: XRDevice | null): void {
     signal(azDeg = 20): void {
       const sim = game.sim;
       sim.headUp.enabled = true;
-      sim.headUp.show(sim.level, sim.eyeHeight, azDeg);
+      sim.headUp.show(sim.eyeHeight, azDeg);
     },
-    /** Hlava hore: nastaví prehľad 0–1 (0 = podlaha naplno stmavne, len počas hrania). */
-    awareness(value: number): number {
+    /**
+     * Hlava hore: nastaví, ako dlho už spoluhráč čaká (s), na zábery eskalácie. Bez čakajúceho spoluhráča
+     * ho najprv ukáže. Vráti eskaláciu 0–1 (tma sa prejaví v najbližšom snímku počas hrania).
+     */
+    mateAge(seconds: number): number {
       const drill = game.sim.headUp;
-      drill.enabled = true;
-      drill.awareness = Math.max(0, Math.min(1, value));
-      return app.darkening.opacity;
+      if (!drill.active) api.signal();
+      drill.age = Math.max(0, seconds);
+      drill.nagAt = drill.age;
+      return drill.escalation();
     },
   };
   (window as unknown as Record<string, unknown>).__dr = api;

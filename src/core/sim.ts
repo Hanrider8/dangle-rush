@@ -54,14 +54,15 @@ export interface SimSnapshot {
   floorMisses: number;
   hits: number;
   rngState: number;
-  /** Hlava hore: prehľad, spoluhráč a náhoda. */
-  awareness: number;
+  /** Hlava hore: spoluhráč, eskalácia a náhoda. */
   signalActive: boolean;
   signalId: number;
   signalAge: number;
   signalNextAt: number;
+  signalBlinkPhase: number;
+  signalNagAt: number;
   signalsSeen: number;
-  signalsMissed: number;
+  signalReactionSum: number;
   signalRngState: number;
   obstacles: { id: number; kind: string; z: number; prevZ: number; resolved: boolean; hit: boolean }[];
 }
@@ -69,7 +70,7 @@ export interface SimSnapshot {
 export class GameplaySim {
   readonly obstacles: Obstacle[] = [];
   readonly spawner: Spawner;
-  /** Hlava hore: spoluhráč nad horizontom a prehľad (zatmavenie podlahy). */
+  /** Hlava hore: spoluhráč nad horizontom, ktorý čaká na pohľad (eskalácia, zatmavenie). */
   readonly headUp: HeadUpDrill;
 
   /** Čistý herný čas v sekundách. */
@@ -178,8 +179,9 @@ export class GameplaySim {
     const headUp = this.headUp;
     if (headUp.enabled) {
       const free = headUp.waiting(this.time) ? this.freeTime(ballZ) : Infinity;
-      if (headUp.step(dt, this.time, this.level, this.eyeHeight, h1, fwd, free) === SIGNAL_SEEN) {
-        this.score += cfg.headUp.scorePerSignal * comboMultiplier(this.combo, cfg.rules);
+      if (headUp.step(dt, this.time, this.eyeHeight, h1, fwd, free) === SIGNAL_SEEN) {
+        // Neskorý pohľad (počas eskalácie) dá menej bodov.
+        this.score += cfg.headUp.scorePerSignal * comboMultiplier(this.combo, cfg.rules) * headUp.lastFactor;
         this.combo++;
         if (this.combo > this.maxCombo) this.maxCombo = this.combo;
       }
@@ -217,13 +219,14 @@ export class GameplaySim {
       floorMisses: this.floorMisses,
       hits: this.hits,
       rngState: this.spawner.rngState,
-      awareness: this.headUp.awareness,
       signalActive: this.headUp.active,
       signalId: this.headUp.id,
       signalAge: this.headUp.age,
       signalNextAt: this.headUp.nextAt,
+      signalBlinkPhase: this.headUp.blinkPhase,
+      signalNagAt: this.headUp.nagAt,
       signalsSeen: this.headUp.seen,
-      signalsMissed: this.headUp.missed,
+      signalReactionSum: this.headUp.reactionSum,
       signalRngState: this.headUp.rngState,
       obstacles: this.obstacles
         .filter((o) => o.active)

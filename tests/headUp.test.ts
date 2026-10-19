@@ -17,8 +17,6 @@ const BALL_Z = -CONFIG.playArea.centerDistance;
 /** Hráč v postoji: hlava nízko, pohľad dole na puk (sklon −50°). */
 const HEAD: Vec3 = { x: 0, y: 1.3, z: 0 };
 const DOWN: Vec3 = { x: 0, y: -Math.sin(50 * DEG), z: -Math.cos(50 * DEG) };
-/** Pohľad do strany na horizont: hlava hore, ale ďaleko od spoluhráča (ten je najviac 30° od smeru hry). */
-const SIDEWAYS: Vec3 = { x: -1, y: 0, z: 0 };
 
 function makeSim(seed = 3) {
   const events = new EventQueue(1024);
@@ -67,46 +65,113 @@ function placeLowBar(sim: GameplaySim, arrival: number): void {
 }
 
 describe('hlava hore: spoluhráč', () => {
-  it('príde po firstDelay a pohľad naňho dá body, combo a plný prehľad', () => {
+  it('príde po firstDelay a včasný pohľad naňho dá plné body a combo', () => {
     const { sim, events } = makeSim();
     sim.spawnPause = 1e9;
     const shown = stepUntil(sim, events, 'signal', () => DOWN);
     expect(shown).toBeCloseTo(C.firstDelay, 1);
     expect(sim.headUp.active).toBe(true);
-    expect(sim.headUp.awareness).toBeLessThan(1);
 
     const seen = stepUntil(sim, events, 'signalSeen', towardMate, 1);
     expect(seen - shown).toBeGreaterThanOrEqual(C.lookTime - 1e-6);
     expect(seen - shown).toBeLessThan(C.lookTime + 3 * DT);
     expect(sim.headUp.seen).toBe(1);
     expect(sim.headUp.active).toBe(false);
-    expect(sim.headUp.awareness).toBe(1);
+    expect(sim.headUp.reactionSum).toBeCloseTo(seen - shown, 6);
+    expect(sim.headUp.lastFactor).toBe(1);
     expect(sim.combo).toBe(1);
     expect(sim.score - CONFIG.rules.timeBonusPerSecond * sim.time).toBeCloseTo(C.scorePerSignal, 6);
   });
 
-  it('bez pohľadu sa po showTime zmešká a prehľad klesne o missPenalty', () => {
+  it('bez pohľadu nezmizne: eskalácia rastie, tma sa šíri nahor a pripomenutia sú stále častejšie', () => {
     const { sim, events } = makeSim();
     sim.spawnPause = 1e9;
     const shown = stepUntil(sim, events, 'signal', () => DOWN);
-    const showTime = sim.headUp.showTime;
-    expect(showTime).toBeLessThanOrEqual(C.showTimeMax);
-    expect(showTime).toBeGreaterThanOrEqual(C.showTimeMin);
-    // Kúsok pred koncom ešte čaká, potom sa zmešká.
-    let before = 0;
-    let missed = -1;
-    for (let i = 0; i < Math.round(3 / DT) && missed < 0; i++) {
-      before = sim.headUp.awareness;
+    const d = sim.headUp;
+    const nags: number[] = [];
+    let other = 0;
+    let lastDark = 0;
+    let lastSpread = -Infinity;
+    for (let i = 0; i < Math.round(20 / DT); i++) {
       sim.step(DT, HEAD, HEAD, undefined, DOWN);
       events.drain((e) => {
-        if (e.type === 'signalMissed') missed = sim.time;
+        if (e.type === 'signalNag') nags.push(d.age);
+        if (e.type === 'signal' || e.type === 'signalSeen') other++;
       });
+      if (d.age < C.graceTime - 1e-9) {
+        expect(d.escalation()).toBe(0);
+        expect(d.darkness()).toBe(0);
+        expect(d.blink()).toBe(1);
+      }
+      expect(d.darkness()).toBeGreaterThanOrEqual(lastDark - 1e-12);
+      expect(d.spread()).toBeGreaterThanOrEqual(lastSpread - 1e-12);
+      lastDark = d.darkness();
+      lastSpread = d.spread();
     }
-    expect(missed - shown).toBeCloseTo(showTime, 1);
-    expect(sim.headUp.missed).toBe(1);
-    expect(sim.headUp.awareness).toBeCloseTo(Math.max(0, before - C.drainPerSecond * DT - C.missPenalty), 9);
-    expect(sim.combo).toBe(0);
-    expect(sim.score).toBeCloseTo(CONFIG.rules.timeBonusPerSecond * sim.time, 6);
+    expect(other).toBe(0);
+    expect(d.active).toBe(true);
+    expect(d.seen).toBe(0);
+    expect(sim.time - shown).toBeGreaterThan(19.9);
+    expect(d.escalation()).toBe(1);
+    expect(d.darkness()).toBeCloseTo(C.maxDarkness, 9);
+    expect(d.spread()).toBeCloseTo(C.spreadEndDeg, 9);
+    expect(d.spread()).toBeGreaterThan(0);
+
+    // Prvé pripomenutie na začiatku eskalácie, potom sa intervaly skracujú až na nagIntervalMin.
+    expect(nags[0]).toBeCloseTo(C.graceTime, 1);
+    const gaps = nags.slice(1).map((t, i) => t - nags[i]!);
+    expect(gaps[0]).toBeCloseTo(C.nagIntervalMax, 1);
+    for (let i = 1; i < gaps.length; i++) expect(gaps[i]!).toBeLessThanOrEqual(gaps[i - 1]! + 1e-9);
+    expect(gaps[gaps.length - 1]).toBeCloseTo(C.nagIntervalMin, 1);
+  });
+
+  it('blikanie: pulz tmy bez eskalácie nie je, pri plnej má hĺbku blinkDepth a frekvenciu najviac blinkHzMax', () => {
+    const { sim, events } = makeSim();
+    sim.spawnPause = 1e9;
+    stepUntil(sim, events, 'signal', () => DOWN);
+    const d = sim.headUp;
+    while (d.escalation() < 1) sim.step(DT, HEAD, HEAD, undefined, DOWN);
+    let min = 1;
+    let max = 0;
+    let crossings = 0;
+    let prev = d.blink();
+    for (let i = 0; i < Math.round(4 / DT); i++) {
+      sim.step(DT, HEAD, HEAD, undefined, DOWN);
+      const b = d.blink();
+      min = Math.min(min, b);
+      max = Math.max(max, b);
+      if (prev >= 0.75 && b < 0.75) crossings++;
+      prev = b;
+    }
+    expect(max).toBeCloseTo(1, 3);
+    expect(min).toBeCloseTo(1 - C.blinkDepth, 3);
+    expect(C.blinkHzMax).toBeLessThan(3);
+    expect(crossings).toBeGreaterThanOrEqual(Math.floor(4 * C.blinkHzMax) - 1);
+    expect(crossings).toBeLessThanOrEqual(Math.ceil(4 * C.blinkHzMax));
+  });
+
+  it('pohľad vráti všetko do normálu; neskorý pohľad dá menej bodov', () => {
+    const { sim, events } = makeSim();
+    sim.spawnPause = 1e9;
+    stepUntil(sim, events, 'signal', () => DOWN);
+    const d = sim.headUp;
+    const age = C.graceTime + C.escalateTime / 2;
+    while (d.age < age) sim.step(DT, HEAD, HEAD, undefined, DOWN);
+    expect(d.darkness()).toBeGreaterThan(0);
+    const e = d.escalation();
+    const before = sim.score;
+    const seenAt = stepUntil(sim, events, 'signalSeen', towardMate, 1);
+    expect(seenAt).toBeGreaterThan(0);
+    expect(d.active).toBe(false);
+    expect(d.escalation()).toBe(0);
+    expect(d.darkness()).toBe(0);
+    expect(d.blink()).toBe(1);
+    const factor = 1 + (C.lateScoreFactor - 1) * e;
+    expect(d.lastFactor).toBeLessThan(1);
+    expect(d.lastFactor).toBeCloseTo(factor, 1);
+    const gained = sim.score - before - CONFIG.rules.timeBonusPerSecond * C.lookTime;
+    expect(gained).toBeCloseTo(C.scorePerSignal * d.lastFactor, 0);
+    expect(d.reactionSum).toBeGreaterThan(age);
   });
 
   it('pri pohľade hore kamera stratí puk: spoluhráč počká, kým prvok na zemi prejde čiarou puku', () => {
@@ -154,7 +219,7 @@ describe('hlava hore: spoluhráč', () => {
     const sides = new Set<number>();
     for (let seed = 1; seed <= 300; seed++) {
       drill.reset(seed, true);
-      drill.step(DT, C.firstDelay, 0.5, EYE, eye, DOWN, Infinity);
+      drill.step(DT, C.firstDelay, EYE, eye, DOWN, Infinity);
       expect(drill.active).toBe(true);
       const az = Math.abs(drill.azDeg);
       expect(az).toBeGreaterThanOrEqual(C.azimuthMinDeg);
@@ -172,28 +237,17 @@ describe('hlava hore: spoluhráč', () => {
   });
 });
 
-describe('hlava hore: prehľad a zatmavenie', () => {
-  it('s hlavou dole klesá, pri pohľade hore sa dopĺňa; podlaha tmavne až pod darkenBelow', () => {
+describe('hlava hore: bez spoluhráča', () => {
+  it('bez čakajúceho spoluhráča nie je tma ani s hlavou dole', () => {
     const { sim } = makeSim();
     sim.spawnPause = 1e9;
-    for (let i = 0; i < Math.round(3 / DT); i++) sim.step(DT, HEAD, HEAD, undefined, DOWN);
-    expect(sim.headUp.awareness).toBeCloseTo(1 - 3 * C.drainPerSecond, 6);
+    for (let i = 0; i < Math.round((C.firstDelay - 0.1) / DT); i++) sim.step(DT, HEAD, HEAD, undefined, DOWN);
+    expect(sim.headUp.active).toBe(false);
     expect(sim.headUp.darkness()).toBe(0);
-    for (let i = 0; i < Math.round(2 / DT); i++) sim.step(DT, HEAD, HEAD, undefined, DOWN);
-    expect(sim.headUp.awareness).toBeCloseTo(1 - 5 * C.drainPerSecond, 6);
-    const dark = sim.headUp.darkness();
-    expect(dark).toBeGreaterThan(0);
-    expect(dark).toBeLessThan(1);
-    for (let i = 0; i < Math.round(0.2 / DT); i++) sim.step(DT, HEAD, HEAD, undefined, SIDEWAYS);
-    expect(sim.headUp.awareness).toBeCloseTo(1 - 5 * C.drainPerSecond + 0.2 * C.refillPerSecond, 6);
-    for (let i = 0; i < Math.round(1 / DT); i++) sim.step(DT, HEAD, HEAD, undefined, SIDEWAYS);
-    expect(sim.headUp.awareness).toBe(1);
-    expect(sim.headUp.darkness()).toBe(0);
-    sim.headUp.awareness = 0;
-    expect(sim.headUp.darkness()).toBe(1);
+    expect(sim.headUp.blink()).toBe(1);
   });
 
-  it('priame testy simulácie bez hlavy hore: prehľad ostáva 1, spoluhráč nepríde', () => {
+  it('priame testy simulácie bez hlavy hore: spoluhráč nepríde ani netmavne', () => {
     const events = new EventQueue(1024);
     const sim = new GameplaySim(CONFIG, events);
     sim.reset(3, EYE, 'medium', true);
@@ -201,11 +255,10 @@ describe('hlava hore: prehľad a zatmavenie', () => {
     for (let i = 0; i < Math.round(12 / DT); i++) {
       sim.step(DT, { x: 50, y: EYE, z: 0 }, { x: 50, y: EYE, z: 0 });
       events.drain((e) => {
-        if (e.type === 'signal') signals++;
+        if (e.type === 'signal' || e.type === 'signalNag') signals++;
       });
     }
     expect(signals).toBe(0);
-    expect(sim.headUp.awareness).toBe(1);
     expect(sim.headUp.darkness()).toBe(0);
   });
 });
@@ -213,18 +266,34 @@ describe('hlava hore: prehľad a zatmavenie', () => {
 describe('hlava hore v hre', () => {
   const crouched = () => headAt(0, 1.2, 0, 0, -50);
 
-  it('je predvolene zapnutá: s hlavou dole spoluhráča zmešká a výsledok ho započíta', () => {
+  it('je predvolene zapnutá: s hlavou dole spoluhráč čaká, pripomína sa a tma rastie', () => {
     const { game } = makeGame({ seed: 11 });
     expect(game.settings.headUp).toBe(true);
     startPlaying(game);
     const events = run(game, 12, crouched());
-    expect(events.some((e) => e.type === 'signal')).toBe(true);
-    expect(events.some((e) => e.type === 'signalMissed')).toBe(true);
-    expect(game.sim.headUp.missed).toBeGreaterThan(0);
+    expect(events.filter((e) => e.type === 'signal').length).toBe(1);
+    expect(events.some((e) => e.type === 'signalNag')).toBe(true);
+    expect(game.sim.headUp.active).toBe(true);
     expect(game.sim.headUp.darkness()).toBeGreaterThan(0);
   });
 
-  it('dá sa vypnúť v nastaveniach (uloží sa) a vypnutá nepošle spoluhráča ani nezatmaví podlahu', () => {
+  it('pauza zmrazí čakanie, eskaláciu aj pripomenutia', () => {
+    const { game } = makeGame({ seed: 11 });
+    startPlaying(game);
+    run(game, 8, crouched());
+    const d = game.sim.headUp;
+    expect(d.active).toBe(true);
+    const age = d.age;
+    const phase = d.blinkPhase;
+    game.autoPause('visibility');
+    const events = run(game, 5, crouched());
+    expect(game.state).toBe('PAUSED');
+    expect(events.some((e) => e.type === 'signalNag')).toBe(false);
+    expect(d.age).toBe(age);
+    expect(d.blinkPhase).toBe(phase);
+  });
+
+  it('dá sa vypnúť v nastaveniach (uloží sa) a vypnutá nepošle spoluhráča ani nezatmaví obraz', () => {
     const { game, storage } = makeGame();
     run(game, 0.1, standing());
     press(game, 'settings');
@@ -237,11 +306,10 @@ describe('hlava hore v hre', () => {
     startPlaying(off);
     const events = run(off, 12, crouched());
     expect(events.some((e) => e.type === 'signal')).toBe(false);
-    expect(off.sim.headUp.awareness).toBe(1);
     expect(off.sim.headUp.darkness()).toBe(0);
   });
 
-  it('zmeškaní aj zachytení spoluhráči sú vo výsledku hry', () => {
+  it('výsledok hry: hlava hore zapnutá, zachytení spoluhráči a priemerná reakcia', () => {
     const storage = new MemoryStorage();
     storage.setItem(SETTINGS_KEY, JSON.stringify({ eyeHeight: EYE }));
     const game = new Game({ storage, seed: 9 });
@@ -250,8 +318,8 @@ describe('hlava hore v hre', () => {
     run(game, 240, crouched());
     expect(game.state).toBe('GAME_OVER');
     const r = game.result!;
-    expect(r.signalsTotal).toBe(game.sim.headUp.seen + game.sim.headUp.missed);
-    expect(r.signalsTotal).toBeGreaterThan(0);
+    expect(r.headUp).toBe(true);
     expect(r.signalsSeen).toBe(0);
+    expect(r.avgReaction).toBe(0);
   });
 });

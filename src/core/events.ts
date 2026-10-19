@@ -25,10 +25,11 @@ export type GameEventType =
   | 'floorPass'
   | 'hit'
   | 'cleared'
-  /** Hlava hore: spoluhráč sa objavil / hráč sa naňho pozrel / zmeškal ho (n = poradové číslo). */
+  /** Hlava hore: spoluhráč sa objavil / hráč sa naňho pozrel (n = poradové číslo). */
   | 'signal'
   | 'signalSeen'
-  | 'signalMissed'
+  /** Hlava hore: spoluhráč stále čaká, naliehavé pripomenutie (n = eskalácia v %). */
+  | 'signalNag'
   | 'gameOver';
 
 export interface GameEvent {

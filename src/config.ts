@@ -215,18 +215,15 @@ export const CONFIG = {
   },
 
   /**
-   * Hlava hore (nastavenie, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč, na ktorého sa treba
-   * pozrieť. Kto hlavu nedvíha, tomu tmavne podlaha. Riadi to prehľad (0–1): s hlavou dole klesá,
-   * pri pohľade hore sa dopĺňa, zmeškaný spoluhráč ho zrazí.
+   * Hlava hore (nastavenie, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč a čaká, kým sa naňho
+   * hráč pozrie. Kým čaká, hra stupňuje tlak: tma, ktorá sa šíri od podlahy nahor, blikanie a pripomenutia.
+   * Pohľad naňho vráti všetko do normálu.
    */
   headUp: {
-    /** Prvý spoluhráč po štarte a interval medzi nimi (náhodne min–max, od konca predošlého). */
+    /** Prvý spoluhráč po štarte a interval medzi nimi (náhodne min–max, od pohľadu na predošlého). */
     firstDelay: 4,
     intervalMin: 4,
     intervalMax: 7,
-    /** Ako dlho spoluhráč čaká na pohľad pri najnižšej a najvyššej úrovni. */
-    showTimeMax: 2.0,
-    showTimeMin: 1.3,
     /**
      * Značka spoluhráča: vzdialenosť, elevácia nad výškou očí a azimut (obe strany). Ďaleko od tlačidla
      * Pauza (bok ±60°, hore 35°) a mimo HUD (±7° nad koncom dráhy).
@@ -244,20 +241,30 @@ export const CONFIG = {
      */
     clearTime: 0.8,
     maxWait: 2.5,
-    /** Body za zachyteného spoluhráča (krát combo násobiteľ). */
+    /** Body za zachyteného spoluhráča (krát combo násobiteľ); pri plnej eskalácii len lateScoreFactor z nich. */
     scorePerSignal: 50,
-    /** Hlava hore = sklon pohľadu nad týmto uhlom. Prehľad za sekundu: úbytok dole, prírastok hore. */
-    upPitchDeg: -15,
-    drainPerSecond: 0.1,
-    refillPerSecond: 2.0,
-    /** O toľko klesne prehľad pri zmeškanom spoluhráčovi. */
-    missPenalty: 0.4,
-    /** Podlaha začne tmavnúť pod týmto prehľadom, pri nule naplno (najviac maxDarkness, passthrough nezčernie). */
-    darkenBelow: 0.6,
-    maxDarkness: 0.75,
-    /** Tmavne všetko pod touto eleváciou pohľadu, naplno od darkenFullDeg. */
-    darkenStartDeg: -12,
-    darkenFullDeg: -35,
+    lateScoreFactor: 0.3,
+    /** Eskalácia (0–1) začne po graceTime čakania a naplno je o escalateTime neskôr. */
+    graceTime: 1.0,
+    escalateTime: 4.0,
+    /** Najsilnejšie zatmavenie (passthrough nikdy úplne nezčernie). */
+    maxDarkness: 0.85,
+    /**
+     * Horná hranica tmy (elevácia pohľadu): do eskalácie spreadFrom len pod spreadStartDeg (podlaha a puk),
+     * potom stúpa až po spreadEndDeg (takmer celé zorné pole).
+     */
+    spreadFrom: 0.35,
+    spreadStartDeg: -12,
+    spreadEndDeg: 70,
+    /** Okno okolo spoluhráča, ktoré ostane svetlé (uhol od smeru naňho). */
+    clearWindowDeg: 10,
+    /** Mäkké blikanie tmy: frekvencia rastie s eskaláciou (pod 3 Hz kvôli fotosenzitivite), hĺbka pulzu. */
+    blinkHzMin: 1.0,
+    blinkHzMax: 2.5,
+    blinkDepth: 0.5,
+    /** Pripomenutie (píšťalka): prvé na začiatku eskalácie, potom interval klesá z max na min. */
+    nagIntervalMax: 2.0,
+    nagIntervalMin: 0.6,
   },
 
   hud: {

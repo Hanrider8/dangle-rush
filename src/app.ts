@@ -12,7 +12,7 @@ import { MAX_ELEMENTS } from './core/obstacles';
 import { createHeadSample, createPuckSample, type PuckSample } from './core/types';
 import { HitVignette } from './render/effects';
 import { FloorFeedback } from './render/feedback';
-import { FloorDarkening, TeammateView } from './render/headUp';
+import { Darkening, TeammateView } from './render/headUp';
 import { createResources } from './render/materials';
 import { ObstacleViews } from './render/obstacleViews';
 import { PlayAreaView } from './render/playArea';
@@ -32,9 +32,9 @@ export class App {
   readonly ui: UiManager;
   readonly obstacles: ObstacleViews;
   readonly feedback: FloorFeedback;
-  /** Hlava hore: spoluhráč nad horizontom a zatmavenie podlahy. */
+  /** Hlava hore: spoluhráč nad horizontom a zatmavenie, kým sa naňho hráč nepozrie. */
   readonly teammate: TeammateView;
-  readonly darkening = new FloorDarkening(CONFIG);
+  readonly darkening = new Darkening(CONFIG);
   readonly playArea = new PlayAreaView();
   readonly vignette = new HitVignette();
   readonly sfx = new Sfx(CONFIG.audio.volume);
@@ -132,7 +132,7 @@ export class App {
     this.obstacles.sync(game.sim, game.alpha, dt);
     this.feedback.update(dt, game.alpha, game.sim);
     this.teammate.update(dt, game);
-    this.darkening.update(dt, game, game.headWorld);
+    this.darkening.update(dt, game, game.headWorld, this.rig.playRoot);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
     this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current);
@@ -201,13 +201,12 @@ export class App {
       case 'signal':
         sfx.call();
         break;
+      case 'signalNag':
+        sfx.nag(e.n / 100);
+        break;
       case 'signalSeen':
         sfx.signalSeen();
-        this.teammate.outcome(e.n, true, this.game.sim.headUp);
-        break;
-      case 'signalMissed':
-        sfx.signalMissed();
-        this.teammate.outcome(e.n, false, this.game.sim.headUp);
+        this.teammate.seen(e.n, this.game.sim.headUp);
         break;
       case 'gameOver':
         sfx.gameOver();

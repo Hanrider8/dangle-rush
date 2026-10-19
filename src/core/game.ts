@@ -68,9 +68,10 @@ export interface GameResult {
   /** Prvky na zemi, ktorými puk prešiel, a všetky posúdené (len s kamerou, inak 0). */
   floorHits: number;
   floorJudged: number;
-  /** Hlava hore: zachytení spoluhráči a všetci, ktorí sa objavili (vypnuté = 0 / 0). */
+  /** Hlava hore: bola zapnutá, zachytení spoluhráči a priemerný čas, kým sa hráč pozrel (s). */
+  headUp: boolean;
   signalsSeen: number;
-  signalsTotal: number;
+  avgReaction: number;
   hits: number;
   best: number;
   newBest: boolean;
@@ -395,8 +396,9 @@ export class Game {
       floorPassed: sim.floorPassed,
       floorHits: sim.floorHits,
       floorJudged: sim.floorHits + sim.floorMisses,
+      headUp: sim.headUp.enabled,
       signalsSeen: sim.headUp.seen,
-      signalsTotal: sim.headUp.seen + sim.headUp.missed,
+      avgReaction: sim.headUp.seen > 0 ? sim.headUp.reactionSum / sim.headUp.seen : 0,
       hits: sim.hits,
       best: this.best[d],
       newBest,

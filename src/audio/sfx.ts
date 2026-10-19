@@ -101,9 +101,18 @@ export class Sfx {
     this.tone(1568, 0.2, 'sine', 0.2, 0.06);
   }
 
-  /** Spoluhráč zmeškaný: nízky klesajúci tón. */
-  signalMissed(): void {
-    this.tone(330, 0.3, 'triangle', 0.16, 0, 180);
+  /**
+   * Spoluhráč stále čaká: pripomenutie, čím dlhšie čaká (urgency 0–1), tým vyššie, hlasnejšie
+   * a ostrejšie (pri silnej eskalácii trojitá píšťalka).
+   */
+  nag(urgency: number): void {
+    const u = Math.max(0, Math.min(1, urgency));
+    const f = 1300 + 500 * u;
+    const peak = 0.16 + 0.12 * u;
+    const type: OscillatorType = u > 0.5 ? 'square' : 'triangle';
+    this.tone(f, 0.08, type, peak * (u > 0.5 ? 0.6 : 1), 0, f * 1.3);
+    this.tone(f * 1.12, 0.1, type, peak * (u > 0.5 ? 0.6 : 1), 0.1, f * 1.45);
+    if (u > 0.7) this.tone(f * 1.25, 0.12, type, peak * 0.6, 0.2, f * 1.6);
   }
 
   /** Obídený obranca: swoosh a nižší dvojtón. */

@@ -315,7 +315,9 @@ function drawResults(panel: CanvasPanel, game: Game): void {
       [t.body, String(r.bodyPassed)],
       [t.floor, r.floorJudged > 0 ? `${r.floorHits} / ${r.floorJudged}` : String(r.floorPassed)],
     ];
-    if (r.signalsTotal > 0) rows.push([t.headUp, `${r.signalsSeen} / ${r.signalsTotal}`]);
+    if (r.headUp) {
+      rows.push([t.headUp, r.signalsSeen > 0 ? `${r.signalsSeen} · ⌀ ${formatSeconds(r.avgReaction)}` : '0']);
+    }
     rows.push([`${t.best} (${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
     // So spoluhráčmi je o riadok viac: riadky sa zhustia, aby sa zmestili do panelu.
     const dense = rows.length > 5;

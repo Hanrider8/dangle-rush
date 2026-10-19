@@ -1,7 +1,7 @@
 /**
  * Prepínateľný debug overlay vedľa HUD: FPS, najdlhšia snímka (trhanie), stav automatu, výška hlavy,
  * uhol pohľadu k najbližšiemu tlačidlu, draw cally, počet ignorovaných vstupov a hlava hore (sklon pohľadu,
- * prehľad, spoluhráči). Obnovuje sa 4× za sekundu.
+ * čakanie spoluhráča a eskalácia). Obnovuje sa 4× za sekundu.
  */
 import type { Config } from '../config';
 import type { Game } from '../core/game';
@@ -63,7 +63,7 @@ export class DebugOverlay {
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
       `úroveň ${num(sim.level, 2)} · ${num(sim.speed, 1)} m/s · prekážky ${sim.obstacles.filter((o) => o.active).length}`,
-      `sklon ${Math.round(pitch)}° · prehľad ${Math.round(headUp.awareness * 100)} % · spoluhráči ${headUp.seen}/${headUp.seen + headUp.missed}`,
+      `sklon ${Math.round(pitch)}° · spoluhráč ${headUp.active ? `čaká ${num(headUp.age, 1)} s · eskalácia ${Math.round(headUp.escalation() * 100)} %` : '–'} · zachytení ${headUp.seen}`,
     ];
     this.panel.draw((ctx, w, h) => {
       roundedRect(ctx, 4, 4, w - 8, h - 8, h * 0.08, 'rgba(0, 0, 0, 0.72)', 'rgba(255, 179, 71, 0.8)', 3);
