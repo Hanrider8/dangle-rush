@@ -4,17 +4,17 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 
 Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
-- **Prekážky na zemi** ukazujú, kam s pukom. Zelená plocha so šípkami vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
-  - brána z dvoch kužeľov,
+- **Prekážky na zemi** ukazujú, kam s pukom. Dráha s cyan okrajmi vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok sa krátko rozsvieti na cyan, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
+  - brána z dvoch tréningových markerov,
   - nízka hokejka na zemi z jednej strany,
-  - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
-  - hviezdy, cez ktoré prevedieš puk,
+  - slalom: 3–5 markerov v rade, puk ich obchádza striedavo zľava a sprava,
+  - terče na zemi (v kóde „hviezdy“), cez ktoré prevedieš puk,
   - široké miesanie: brána úplne na jednej strane a hneď nato na druhej,
   - pohyblivá hokejka obrancu (poke check), ktorá sa po zemi presunie na druhú stranu, a puk musíš stiahnuť do medzery, ktorá sa otvorí.
-- **Obrancovia** (hokejisti v červenom a modrom drese) sa vyhodnocujú podľa polohy hlavy; obídený obranca sa zosunie do podlahy:
+- **Obrancovia** (tmavé siluety s červeným obrysom a červenou stopou na zemi) sa vyhodnocujú podľa polohy hlavy; tenká červená čiara ukazuje hranicu, cez ktorú hlava nesmie. Obídený obranca sa zosunie do podlahy:
   - jeden obranca: úkrok alebo náklon na druhú stranu,
   - dvaja obrancovia: hlavou cez medzeru.
-- **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč v zelenom a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
+- **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč (tmavá silueta s cyan obrysom a značkou) a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
 - **Obtiažnosť** (v nastaveniach) má 5 pevných úrovní a počas hry sa nič nezrýchľuje:
 
   | Úroveň | Rýchlosť | Vlna každých | Prekážky |
@@ -28,6 +28,8 @@ Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, 
   Zmena platí od novej hry a rekord sa vedie pre každú úroveň zvlášť.
 - Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
 - Vysoká tyč (zohýbanie) je v hre stále naprogramovaná, ale v predvolenom mixe je vypnutá (`spawn.bodyWeights.highBar` v configu).
+
+**Vzhľad** je v štýle športovej technológie: biela, jeden akcent (cyan) a červená len pre obrancov a zásah. Prekážky majú unlit materiál s jemným tieňovaním a svetlým okrajom, HUD a tlačidlá sú tmavé sklo s úzkym písmom.
 
 Technológie: Three.js, TypeScript, Vite a Vitest. Na vývoj bez headsetu slúži IWER (emulátor WebXR od Meta). Zvuky sú syntetizované cez Web Audio a modely poskladané z primitív, takže hra nepoužíva žiadne externé assety.
 
@@ -147,7 +149,7 @@ Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku a hra podľa 
 3. Klikni na **Spustiť**. Okolo puku na podlahe jemne svieti žiara. Ak nesedí na puku, otvor **Nastavenia →
    Kalibrácia puku**: polož puk asi meter pred seba a asi 10 sekúnd sa pomaly pozeraj okolo neho (vľavo, vpravo,
    bližšie, ďalej). Panel ukáže náhľad kamery a stav, modrý obrys to, čo kamera vidí. Kalibrácia sa uloží.
-4. Pri hre: prvok, ktorým puk prešiel (brána, hviezda, správna strana kužeľa, medzera pri tyči), zozelenie, zmizne
+4. Pri hre: prvok, ktorým puk prešiel (brána, terč, správna strana markera, medzera pri tyči), sa rozsvieti, zmizne
    a zaznie tón, ktorý v sérii stúpa. Minutý prvok zošedne a combo sa vynuluje. HUD ukazuje „Puk úspechy/všetky“.
 5. Dole na stránke je **Správa z testu kamery** pre vývoj (plynulosť snímok, kamera, kalibrácia).
 

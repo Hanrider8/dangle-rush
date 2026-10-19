@@ -1,7 +1,7 @@
 /**
  * Spätná väzba pri prvkoch na zemi. Prvok po posúdení zmizne (obstacleViews ho skryje)
  * a namiesto neho sa na chvíľu ukáže jeho „duch“:
- * - puk prešiel: zelený, mierne sa zväčší a zmizne, okolo miesta pre puk sa rozplynie krúžok,
+ * - puk prešiel: cyan, mierne sa zväčší a zmizne, okolo miesta pre puk sa rozplynie krúžok,
  * - puk minul: sivý, pomaly zmizne,
  * - bez kamery (len prešiel plochou): v pôvodnej farbe, rýchlo zmizne.
  * Efekt ide s prekážkou k hráčovi. Pool s vlastnými materiálmi (priehľadnosť každého efektu zvlášť).
@@ -78,26 +78,24 @@ export class FloorFeedback {
     a.visible = true;
     b.visible = false;
     a.rotation.set(0, 0, 0);
-    let original: number = PALETTE.cone;
+    let original: number = PALETTE.white;
     const x = o.elemX[elem]!;
     e.ringX = o.elemPuckX[elem]!;
     switch (o.kind) {
       case 'stars':
-        a.geometry = g.star;
+        a.geometry = g.target;
         a.position.set(x, 0.014, 0);
         a.scale.setScalar(c.stars.radius);
-        original = PALETTE.star;
+        original = PALETTE.accent;
         break;
       case 'coneGate':
       case 'wideDangle': {
         const off = o.gapW / 2 + c.coneGate.coneRadius;
-        for (const [m, sx] of [
-          [a, -1],
-          [b, 1],
-        ] as const) {
+        for (let k = 0; k < 2; k++) {
+          const m = e.ghosts[k]!;
           m.geometry = g.cone;
           m.visible = true;
-          m.position.set(x + sx * off, 0, 0);
+          m.position.set(x + (k === 0 ? -off : off), 0, 0);
           m.scale.set(c.coneGate.coneRadius, c.coneGate.coneHeight, c.coneGate.coneRadius);
         }
         break;
@@ -111,14 +109,14 @@ export class FloorFeedback {
         a.geometry = g.rod;
         a.position.set((o.x0 + o.x1) / 2, o.height / 2, 0);
         a.scale.set(o.x1 - o.x0, o.height, o.height);
-        original = PALETTE.lowBar;
+        original = PALETTE.white;
         e.ringX = o.gapX;
         break;
       case 'pokeCheck':
         a.geometry = g.box;
         a.position.set(o.sweepTo, 0.02, 0);
         a.scale.set(o.x1 - o.x0, 0.035, 0.035);
-        original = PALETTE.stick;
+        original = PALETTE.graphite;
         e.ringX = o.gapX;
         break;
       default:

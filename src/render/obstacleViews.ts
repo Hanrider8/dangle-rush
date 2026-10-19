@@ -86,25 +86,32 @@ class HighBarView implements ObstacleView {
   }
 }
 
-/** Obranca (hokejista) a takmer priesvitná zóna, ktorú treba obísť hlavou. */
+/**
+ * Obranca (hokejista) so stopou zóny na podlahe a tenkou červenou čiarou na vnútornej hrane zóny:
+ * cez ňu hlava nesmie.
+ */
 class Defender {
   readonly body: Mesh;
-  readonly zone: Mesh;
+  readonly footprint: Mesh;
+  readonly edge: Mesh;
   readonly shadow: Mesh;
 
-  constructor(r: Resources, geometry: BufferGeometry, zone: Material) {
-    this.body = mesh(geometry, r.material.player);
-    this.zone = mesh(r.geometry.box, zone, 2);
+  constructor(r: Resources) {
+    this.body = mesh(r.geometry.playerOpponent, r.material.opponent);
+    this.footprint = mesh(r.geometry.floorPlane, r.material.footprint, 2);
+    this.edge = mesh(r.geometry.box, r.material.dangerEdge, 2);
     this.shadow = mesh(r.geometry.floorPlane, r.material.shadow, 3);
   }
 
   addTo(group: Group): void {
-    group.add(this.shadow, this.body, this.zone);
+    group.add(this.shadow, this.footprint, this.body, this.edge);
   }
 
   /** Zóna od x0 po x1, hokejista pri vnútornej hrane (innerX), tvárou k hráčovi, hokejka von. */
   set(x0: number, x1: number, innerX: number, top: number, depth: number): void {
-    setBox(this.zone, x0, 0, -depth / 2, x1, top, depth / 2);
+    this.footprint.position.set((x0 + x1) / 2, 0.007, 0);
+    this.footprint.scale.set(x1 - x0, 1, depth);
+    setBox(this.edge, innerX - 0.006, 0, depth / 2 - 0.012, innerX + 0.006, top, depth / 2);
     // Helma siaha po vrch kolíznej zóny.
     const scale = Math.max(0.75, Math.min(1.3, top / DEFENDER_HEIGHT));
     const towardOuter = innerX > (x0 + x1) / 2 ? -1 : 1;
@@ -124,7 +131,7 @@ class SideBlockView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    this.defender = new Defender(r, r.geometry.playerRed, r.material.sideBlockZone);
+    this.defender = new Defender(r);
     this.defender.addTo(this.group);
   }
 
@@ -149,8 +156,8 @@ class DoubleBlockView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     const m = r.material;
-    this.left = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
-    this.right = new Defender(r, r.geometry.playerBlue, m.doubleBlockZone);
+    this.left = new Defender(r);
+    this.right = new Defender(r);
     this.left.addTo(this.group);
     this.right.addTo(this.group);
     this.window = mesh(r.geometry.plane, m.gapWindow, 4);
@@ -165,7 +172,7 @@ class DoubleBlockView implements ObstacleView {
     const gr = o.gapX + o.gapW / 2;
     this.left.set(-c.outerX, gl, gl, o.height, c.depth);
     this.right.set(gr, c.outerX, gr, o.height, c.depth);
-    // Zelené „okno“ vo výške hlavy: tadiaľto musí ísť hlava.
+    // Cyan „okno“ vo výške hlavy: tadiaľto musí ísť hlava.
     const y0 = eyeHeight * 0.55;
     const y1 = o.height;
     this.window.position.set(o.gapX, (y0 + y1) / 2, 0);
@@ -175,7 +182,7 @@ class DoubleBlockView implements ObstacleView {
   }
 }
 
-/** Zelený pruh so šípkami na zemi: sem patrí puk. */
+/** Dráha na zemi (cyan okraje a stredová čiara): sem patrí puk. */
 function setGapStrip(m: Mesh, gapX: number, gapW: number): void {
   m.position.set(gapX, 0.008, 0);
   m.scale.set(Math.max(0.05, gapW - 0.04), 1, 0.5);
@@ -192,7 +199,7 @@ class LowBarView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.bar = mesh(g.rod, m.lowBar);
-    this.strip = mesh(g.floorPlane, m.gapStrip, 3);
+    this.strip = mesh(g.floorPlane, m.lane, 3);
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
     this.group.add(this.shadow, this.strip, this.bar);
   }
@@ -221,7 +228,7 @@ class ConeGateView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    this.strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+    this.strip = mesh(r.geometry.floorPlane, r.material.lane, 3);
     this.group.add(this.strip);
     for (let i = 0; i < 2; i++) this.cones.push(new ConeMeshes(r, this.group));
   }
@@ -244,7 +251,7 @@ function elementVisible(z: number, dz: number, spawnDistance: number): boolean {
   return z + dz >= -spawnDistance - 0.05;
 }
 
-/** Kužeľ s blob tieňom. */
+/** Tréningový marker (namiesto kužeľa) s blob tieňom. */
 class ConeMeshes {
   readonly cone: Mesh;
   readonly shadow: Mesh;
@@ -269,7 +276,7 @@ class ConeMeshes {
   }
 }
 
-/** Slalom: kužele v rade, pri každom zelená značka na strane, kadiaľ ide puk. */
+/** Slalom: markery v rade, pri každom úsek dráhy na strane, kadiaľ ide puk. */
 class SlalomView implements ObstacleView {
   readonly kind = 'slalom' as const;
   readonly group = new Group();
@@ -283,7 +290,7 @@ class SlalomView implements ObstacleView {
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
       this.cones.push(new ConeMeshes(r, this.group));
-      const mark = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+      const mark = mesh(r.geometry.floorPlane, r.material.lane, 3);
       this.marks.push(mark);
       this.group.add(mark);
     }
@@ -316,7 +323,7 @@ class SlalomView implements ObstacleView {
   }
 }
 
-/** Široké miesanie: dve brány z kužeľov, úplne na jednej strane a potom na druhej. */
+/** Široké miesanie: dve brány z markerov, úplne na jednej strane a potom na druhej. */
 class WideDangleView implements ObstacleView {
   readonly kind = 'wideDangle' as const;
   readonly group = new Group();
@@ -329,7 +336,7 @@ class WideDangleView implements ObstacleView {
   ) {
     for (let i = 0; i < 4; i++) this.cones.push(new ConeMeshes(r, this.group));
     for (let i = 0; i < 2; i++) {
-      const strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+      const strip = mesh(r.geometry.floorPlane, r.material.lane, 3);
       this.strips.push(strip);
       this.group.add(strip);
     }
@@ -358,7 +365,7 @@ class WideDangleView implements ObstacleView {
   }
 }
 
-/** Hviezdy na zemi (ploché, pokojné). */
+/** Terče na zemi (v simulácii „hviezdy“), cez ktoré prevedieš puk. */
 class StarsView implements ObstacleView {
   readonly kind = 'stars' as const;
   readonly group = new Group();
@@ -370,7 +377,7 @@ class StarsView implements ObstacleView {
     private readonly cfg: Config,
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
-      const star = mesh(r.geometry.star, r.material.star, 3);
+      const star = mesh(r.geometry.target, r.material.target, 3);
       this.stars.push(star);
       this.group.add(star);
     }
@@ -396,7 +403,7 @@ class StarsView implements ObstacleView {
   }
 }
 
-/** Pohyblivá hokejka obrancu: leží na zemi a posúva sa na druhú stranu; medzera sa otvára. */
+/** Pohyblivá hokejka obrancu (grafit, biela páska na čepeli): leží na zemi a posúva sa; medzera sa otvára. */
 class PokeCheckView implements ObstacleView {
   readonly kind = 'pokeCheck' as const;
   readonly group = new Group();
@@ -413,9 +420,9 @@ class PokeCheckView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
-    this.strip = mesh(g.floorPlane, m.gapStrip, 3);
+    this.strip = mesh(g.floorPlane, m.lane, 3);
     this.shaft = mesh(g.box, m.stick);
-    this.blade = mesh(g.box, m.stick);
+    this.blade = mesh(g.box, m.stickTape);
     this.group.add(this.shadow, this.strip, this.shaft, this.blade);
   }
 

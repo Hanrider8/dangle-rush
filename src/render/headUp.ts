@@ -1,6 +1,7 @@
 /**
  * Hlava hore v renderi:
- * - TeammateView: spoluhráč ďaleko vpredu (hokejista v zelenom) a nad ním pulzujúca svietiaca značka.
+ * - TeammateView: spoluhráč ďaleko vpredu (tmavá silueta s cyan okrajom) a nad ním pulzujúca značka
+ *   (krúžok s bodkou a žiarou).
  *   Kým čaká, značka pulzuje stále rýchlejšie a väčšia a spoluhráč poskakuje. Pri zachytení značka
  *   zabliká a zväčší sa. Je v playRoot (herný priestor), polohu berie zo simulácie. Kreslí sa nad tmou.
  * - Darkening: guľa okolo hlavy natočená voči svetu (nie s hlavou). Podľa eskalácie stmaví najprv podlahu
@@ -17,6 +18,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
+  RingGeometry,
   SRGBColorSpace,
   ShaderMaterial,
   SphereGeometry,
@@ -75,9 +77,11 @@ export class TeammateView {
   readonly root = new Group();
   private readonly player: Mesh;
   private readonly shadow: Mesh;
-  /** Značka (disk a žiara) natočená k hráčovi. */
+  /** Značka (krúžok s bodkou a žiara) natočená k hráčovi. */
   private readonly sign = new Group();
-  private readonly disc: Mesh<CircleGeometry, MeshBasicMaterial>;
+  private readonly disc = new Group();
+  private readonly ring: Mesh<RingGeometry, MeshBasicMaterial>;
+  private readonly dot: Mesh<CircleGeometry, MeshBasicMaterial>;
   private readonly halo: Mesh<PlaneGeometry, MeshBasicMaterial>;
   private readonly mateColor = new Color(PALETTE.mate);
   private readonly white = new Color(0xffffff);
@@ -88,14 +92,17 @@ export class TeammateView {
 
   constructor(r: Resources) {
     // Vlastná (priehľadná) kópia materiálu: len tak sa spoluhráč nakreslí až po tme.
-    const material = r.material.player.clone();
+    const material = r.material.mate.clone();
     material.transparent = true;
     this.player = new Mesh(r.geometry.playerMate, material);
     this.player.renderOrder = MATE_ORDER;
     this.shadow = new Mesh(r.geometry.floorPlane, r.material.shadow);
     this.shadow.renderOrder = 3;
-    this.disc = new Mesh(new CircleGeometry(SIGN_RADIUS, 32), basic(PALETTE.mate));
-    this.disc.renderOrder = MATE_ORDER + 2;
+    this.ring = new Mesh(new RingGeometry(SIGN_RADIUS * 0.78, SIGN_RADIUS, 48), basic(PALETTE.mate));
+    this.ring.renderOrder = MATE_ORDER + 2;
+    this.dot = new Mesh(new CircleGeometry(SIGN_RADIUS * 0.32, 24), basic(0xffffff));
+    this.dot.renderOrder = MATE_ORDER + 2;
+    this.disc.add(this.ring, this.dot);
     this.halo = new Mesh(new PlaneGeometry(SIGN_RADIUS * 5, SIGN_RADIUS * 5), basic(PALETTE.mate, glowTexture()));
     this.halo.renderOrder = MATE_ORDER + 1;
     this.sign.add(this.halo, this.disc);
@@ -132,11 +139,11 @@ export class TeammateView {
       const p = 0.5 + 0.5 * Math.sin(this.pulse * 2 * Math.PI);
       this.rise(Math.min(1, this.time / RISE_TIME));
       this.player.position.y = HOP * e * Math.abs(Math.sin(drill.blinkPhase * Math.PI));
-      this.disc.material.color.copy(this.mateColor);
-      this.disc.material.opacity = 0.95;
+      this.ring.material.color.copy(this.mateColor);
+      this.setSignOpacity(0.95);
       this.disc.scale.setScalar((1 + 0.6 * e) * (1 + 0.08 * p));
       this.halo.material.color.copy(this.mateColor);
-      this.halo.material.opacity = 0.35 + 0.4 * p;
+      this.halo.material.opacity = 0.25 + 0.3 * p;
       this.halo.scale.setScalar((1 + 0.8 * e) * (0.9 + 0.3 * p));
       return;
     }
@@ -145,9 +152,9 @@ export class TeammateView {
       const k = Math.min(1, this.time / SEEN_TIME);
       this.rise(1 - k);
       this.player.position.y = 0;
-      this.disc.material.color.copy(this.mateColor).lerp(this.white, 1 - k);
+      this.ring.material.color.copy(this.mateColor).lerp(this.white, 1 - k);
       this.disc.scale.setScalar(1 + 0.9 * k);
-      this.disc.material.opacity = 1 - k;
+      this.setSignOpacity(1 - k);
       this.halo.material.color.copy(this.white);
       this.halo.scale.setScalar(1.2 + 1.3 * k);
       this.halo.material.opacity = 0.9 * (1 - k);
@@ -169,6 +176,11 @@ export class TeammateView {
     this.sign.position.set(drill.x, drill.y, drill.z);
     this.sign.rotation.set(0, yaw, 0);
     this.root.visible = true;
+  }
+
+  private setSignOpacity(opacity: number): void {
+    this.ring.material.opacity = opacity;
+    this.dot.material.opacity = opacity;
   }
 
   /** Spoluhráč sa vynorí z podlahy (0 = skrytý, 1 = stojí). */
