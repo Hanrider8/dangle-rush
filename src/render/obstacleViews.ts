@@ -16,6 +16,10 @@ const FADE_TIME = 0.22;
 /** Obídený obranca sa za tento čas „zosunie“ do podlahy. */
 const PASS_TIME = 0.35;
 const DEFENDER_HEIGHT = 1.75;
+/** Pulz navádzania puku: stredná priehľadnosť, amplitúda a frekvencia (Hz). */
+const GUIDE_OPACITY = 0.8;
+const GUIDE_PULSE = 0.18;
+const GUIDE_PULSE_HZ = 0.9;
 
 /** Prvok vzoru ešte nebol posúdený (ani nezmizol po prejdení plochou). */
 function pending(o: Obstacle, i: number): boolean {
@@ -176,10 +180,15 @@ class DoubleBlockView implements ObstacleView {
   }
 }
 
-/** Modrá farba na zemi (ako modrá čiara na ľade): sem patrí puk. */
+/** Najväčší a najmenší priemer svetelnej škvrny navádzania (m). */
+const GUIDE_MAX = 0.45;
+const GUIDE_MIN = 0.16;
+
+/** Svetelná škvrna s krúžkom v strede medzery: tadiaľto patrí puk (kruh, nie natiahnutá podľa šírky). */
 function setGapStrip(m: Mesh, gapX: number, gapW: number): void {
+  const d = Math.max(GUIDE_MIN, Math.min(GUIDE_MAX, gapW * 0.9));
   m.position.set(gapX, 0.008, 0);
-  m.scale.set(Math.max(0.05, gapW - 0.04), 1, 0.5);
+  m.scale.set(d, 1, d);
 }
 
 /** Nízka prekážka: hokejka ležiaca na zemi z jednej strany. */
@@ -194,7 +203,7 @@ class LowBarView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.bar = mesh(g.stick, m.lowBar);
-    this.strip = mesh(g.floorPlane, m.gapStrip, 3);
+    this.strip = mesh(g.floorPlane, m.guide, 3);
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
     this.group.add(this.shadow, this.strip, this.bar);
   }
@@ -224,7 +233,7 @@ class ConeGateView implements ObstacleView {
     r: Resources,
     private readonly cfg: Config,
   ) {
-    this.strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+    this.strip = mesh(r.geometry.floorPlane, r.material.guide, 3);
     this.group.add(this.strip);
     for (let i = 0; i < 2; i++) this.cones.push(new ConeMeshes(r, this.group));
   }
@@ -286,7 +295,7 @@ class SlalomView implements ObstacleView {
   ) {
     for (let i = 0; i < MAX_ELEMENTS; i++) {
       this.cones.push(new ConeMeshes(r, this.group));
-      const mark = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+      const mark = mesh(r.geometry.floorPlane, r.material.guide, 3);
       this.marks.push(mark);
       this.group.add(mark);
     }
@@ -301,11 +310,9 @@ class SlalomView implements ObstacleView {
       this.marks[i]!.visible = used;
       if (!used) continue;
       this.cones[i]!.set(o.elemX[i]!, o.elemDz[i]!, this.cfg);
-      // Značka medzi kužeľom a stopou puku (od okraja kužeľa po stopu a kúsok za ňu).
-      const x0 = o.elemX[i]! + Math.sign(o.elemPuckX[i]! - o.elemX[i]!) * 0.1;
-      const x1 = o.elemPuckX[i]! + Math.sign(o.elemPuckX[i]! - o.elemX[i]!) * 0.12;
-      this.marks[i]!.position.set((x0 + x1) / 2, 0.008, o.elemDz[i]!);
-      this.marks[i]!.scale.set(Math.max(0.1, Math.abs(x1 - x0)), 1, pass);
+      // Svetelná škvrna na stope puku vedľa kužeľa (strana, kadiaľ ho obísť).
+      this.marks[i]!.position.set(o.elemPuckX[i]!, 0.008, o.elemDz[i]!);
+      this.marks[i]!.scale.set(pass * 1.2, 1, pass * 1.2);
     }
   }
 
@@ -332,7 +339,7 @@ class WideDangleView implements ObstacleView {
   ) {
     for (let i = 0; i < 4; i++) this.cones.push(new ConeMeshes(r, this.group));
     for (let i = 0; i < 2; i++) {
-      const strip = mesh(r.geometry.floorPlane, r.material.gapStrip, 3);
+      const strip = mesh(r.geometry.floorPlane, r.material.guide, 3);
       this.strips.push(strip);
       this.group.add(strip);
     }
@@ -423,7 +430,7 @@ class PokeCheckView implements ObstacleView {
     const g = r.geometry;
     const m = r.material;
     this.shadow = mesh(g.floorPlane, m.shadow, 2);
-    this.strip = mesh(g.floorPlane, m.gapStrip, 3);
+    this.strip = mesh(g.floorPlane, m.guide, 3);
     this.stick = mesh(g.stick, m.stick);
     this.group.add(this.shadow, this.strip, this.stick);
   }
@@ -471,8 +478,11 @@ export class ObstacleViews {
   private readonly slots: Slot[] = [];
   private readonly fading: Fading[] = [];
   private time = 0;
+  /** Zdieľaný materiál navádzania puku: pomaly pulzuje (jedna zmena za snímok pre všetky škvrny). */
+  private readonly guide: Material & { opacity: number };
 
   constructor(resources: Resources, cfg: Config) {
+    this.guide = resources.material.guide;
     const make: Record<ObstacleKind, () => ObstacleView> = {
       highBar: () => new HighBarView(resources, cfg),
       sideBlock: () => new SideBlockView(resources, cfg),
@@ -499,6 +509,7 @@ export class ObstacleViews {
   /** Synchronizuje meshe s prekážkami simulácie; alpha = interpolácia medzi krokmi. */
   sync(sim: GameplaySim, alpha: number, dt: number): void {
     this.time += dt;
+    this.guide.opacity = GUIDE_OPACITY + GUIDE_PULSE * Math.sin(this.time * GUIDE_PULSE_HZ * 2 * Math.PI);
     const obstacles = sim.obstacles;
     for (let i = 0; i < obstacles.length; i++) {
       const o = obstacles[i]!;

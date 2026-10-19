@@ -4,7 +4,7 @@
  * Realistický vzhľad: fyzikálne materiály (MeshStandardMaterial) s osvetlením z prostredia
  * (scene.ts, RoomEnvironment), skutočné tréningové pomôcky (oranžové kužele, čierny puk na červenom
  * bode buly, hokejka s páskou) a hokejisti v dresoch s číslami, s matnými a lesklými dielmi.
- * Kadiaľ ide puk, ukazuje modrá „farba na ľade“ ako modrá čiara.
+ * Kadiaľ ide puk, ukazuje jemne pulzujúca svetelná škvrna s krúžkom veľkosti puku.
  */
 import {
   BoxGeometry,
@@ -39,8 +39,8 @@ export const PALETTE = {
   stick: 0x16171a,
   /** Tréningový kužeľ. */
   cone: 0xff5a14,
-  /** Modrá farba na ľade: kadiaľ ide puk. */
-  gap: 0x1f56c8,
+  /** Svetlo navádzania: kadiaľ ide puk. */
+  gap: 0x4fc3ff,
   /** Červený bod buly pod pukom (prvok „hviezdy“). */
   star: 0xc8102e,
   puck: 0x0b0b0c,
@@ -92,15 +92,6 @@ function canvasTexture(w: number, h: number, draw: (ctx: CanvasRenderingContext2
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return texture;
-}
-
-/** Deterministický šum pre textúry (rovnaký vzhľad pri každom spustení). */
-function noise(seed: number): () => number {
-  let s = seed >>> 0;
-  return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
 }
 
 /** Geometria s jednou farbou vo vertexoch (diely sa zlúčia do jedného meshu = jeden draw call). */
@@ -358,21 +349,26 @@ export function createResources() {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
   });
-  // Farba na ľade: plná modrá s jemnou zrnitosťou a mäkkými okrajmi.
-  const paintTexture = canvasTexture(128, 128, (ctx, w, h) => {
-    const rnd = noise(7);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 120; i++) ctx.clearRect(rnd() * w, rnd() * h, 1, 1);
-    const edge = ctx.createLinearGradient(0, 0, w, 0);
-    edge.addColorStop(0, 'rgba(0,0,0,1)');
-    edge.addColorStop(0.06, 'rgba(0,0,0,0)');
-    edge.addColorStop(0.94, 'rgba(0,0,0,0)');
-    edge.addColorStop(1, 'rgba(0,0,0,1)');
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = edge;
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = 'source-over';
+  // Navádzanie puku: mäkká svetelná škvrna na zemi a v nej výrazný krúžok s tenkým tmavým lemom,
+  // aby bol vidieť na svetlej aj tmavej podlahe (biele pixely zafarbí farba materiálu, čierne ostanú tmavé).
+  const guideTexture = canvasTexture(256, 256, (ctx, w) => {
+    const c = w / 2;
+    const glow = ctx.createRadialGradient(c, c, 0, c, c, c);
+    glow.addColorStop(0, 'rgba(255,255,255,0.5)');
+    glow.addColorStop(0.4, 'rgba(255,255,255,0.3)');
+    glow.addColorStop(0.75, 'rgba(255,255,255,0.08)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, w);
+    const ring = (radius: number, width: number, style: string) => {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.arc(c, c, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+    ring(w * 0.2, w * 0.06, 'rgba(0,0,0,0.35)');
+    ring(w * 0.2, w * 0.035, 'rgba(255,255,255,1)');
   });
   // Puk: vľavo ryhovaný bok, vpravo vrch s jemnou potlačou (kruh a text).
   const puckTexture = canvasTexture(256, 128, (ctx, w, h) => {
@@ -443,14 +439,15 @@ export function createResources() {
       gapEdge: new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }),
       lowBar: shiny(),
       cone: new MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0 }),
-      /** Modrá farba na ľade (kadiaľ ide puk). */
-      gapStrip: new MeshBasicMaterial({
+      /** Navádzanie puku: svetelná škvrna s krúžkom (jemne pulzuje, obstacleViews.ts). */
+      guide: new MeshBasicMaterial({
         color: PALETTE.gap,
-        map: paintTexture,
+        map: guideTexture,
         transparent: true,
-        opacity: 0.62,
+        opacity: 0.85,
         depthWrite: false,
         side: DoubleSide,
+        toneMapped: false,
       }),
       star: new MeshBasicMaterial({ color: PALETTE.star, transparent: true, opacity: 0.8, depthWrite: false, side: DoubleSide }),
       puck: new MeshStandardMaterial({ map: puckTexture, roughness: 0.6, metalness: 0 }),

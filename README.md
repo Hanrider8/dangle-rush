@@ -4,7 +4,7 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 
 Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
-- **Prekážky na zemi** ukazujú, kam s pukom. Modrá farba na zemi (ako modrá čiara na ľade) vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
+- **Prekážky na zemi** ukazujú, kam s pukom. Jemne pulzujúci svetelný krúžok na zemi vždy označuje, kadiaľ má ísť puk (stred bránky, medzera pri hokejke, strana pri slalome). Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
   - brána z dvoch oranžových tréningových kužeľov,
   - nízka hokejka na zemi z jednej strany,
   - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
