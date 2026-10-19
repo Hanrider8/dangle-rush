@@ -7,9 +7,9 @@ import { clamp } from './math';
 
 export type PauseSide = 'left' | 'right';
 export type PausePosition = 'side' | 'top';
-export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'warmup' | 'easy' | 'medium' | 'hard' | 'pro';
 
-export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
+export const DIFFICULTIES: readonly Difficulty[] = ['warmup', 'easy', 'medium', 'hard', 'pro'];
 
 export interface Settings {
   dwellTime: number;
@@ -35,7 +35,8 @@ export interface KeyValueStorage {
 }
 
 export const SETTINGS_KEY = 'dangleRush.settings.v1';
-export const BEST_KEY = 'dangleRush.best.v1';
+/** v2: pevné úrovne obtiažnosti (rekordy z hry so zrýchľovaním sa nedajú porovnať). */
+export const BEST_KEY = 'dangleRush.best.v2';
 
 /** Úložisko v pamäti: pre testy a ako náhrada, keď localStorage nie je dostupný. */
 export class MemoryStorage implements KeyValueStorage {
@@ -55,7 +56,7 @@ export function defaultSettings(cfg: Config): Settings {
     dwellTime: cfg.gaze.dwellTime,
     pauseSide: 'right',
     pausePosition: 'side',
-    difficulty: 'medium',
+    difficulty: 'easy',
     floorObstacles: true,
     headUp: true,
     countdown: cfg.countdown.default,
@@ -129,7 +130,7 @@ export function saveSettings(storage: KeyValueStorage, settings: Settings): void
 }
 
 export function loadBest(storage: KeyValueStorage): BestScores {
-  const best: BestScores = { easy: 0, medium: 0, hard: 0 };
+  const best: BestScores = { warmup: 0, easy: 0, medium: 0, hard: 0, pro: 0 };
   const raw = readJson(storage, BEST_KEY);
   if (typeof raw === 'object' && raw !== null) {
     for (const d of DIFFICULTIES) {

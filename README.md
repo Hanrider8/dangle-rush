@@ -15,6 +15,17 @@ Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, 
   - jeden obranca: úkrok alebo náklon na druhú stranu,
   - dvaja obrancovia: hlavou cez medzeru.
 - **Hlava hore** (v nastaveniach, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč v zelenom a čaká, kým sa naňho pozrieš. Kým sa nepozrieš, obraz stále viac tmavne (najprv podlaha, potom takmer všetko okrem spoluhráča), bliká a ozýva sa píšťalka. Pohľad naňho vráti všetko do normálu; čím skôr, tým viac bodov.
+- **Obtiažnosť** (v nastaveniach) má 5 pevných úrovní a počas hry sa nič nezrýchľuje:
+
+  | Úroveň | Rýchlosť | Vlna každých | Prekážky |
+  |---|---|---|---|
+  | Rozcvička | 1,5 m/s | 2,6 s | brány, hviezdy, nízka tyč |
+  | Ľahká (predvolená) | 2,0 m/s | 2,2 s | + slalom, široké miesanie, jeden obranca |
+  | Stredná | 2,7 m/s | 1,8 s | + poke check, dvaja obrancovia, kombinácie |
+  | Ťažká | 3,5 m/s | 1,4 s | všetko |
+  | Pro | 4,5 m/s | 1,1 s | všetko, najviac obrancov |
+
+  Zmena platí od novej hry a rekord sa vedie pre každú úroveň zvlášť.
 - Máš 3 životy a strácaš ich len pri zásahu obrancom. Skóre rastie za obídených obrancov (combo násobiteľ) a za čas prežitia.
 - Vysoká tyč (zohýbanie) je v hre stále naprogramovaná, ale v predvolenom mixe je vypnutá (`spawn.bodyWeights.highBar` v configu).
 
@@ -172,7 +183,7 @@ Všetky laditeľné hodnoty sú v [`src/config.ts`](src/config.ts). Ako prvé sa
 | `playArea.width`, `.depth`, `.centerDistance` | 1,5 × 1,0 m, 0,55 m | Rozmery a poloha plochy pre puk (šírka obmedzuje aj bočné posuny prekážok). |
 | `puck.*` | — | Tolerancie posudzovania puku (brána, hviezda, slalom) a body za prvok. |
 | `playArea.showWhilePlaying`, `.showTrack` | vyp, vyp | Plocha aj počas hrania; čiary dráhy k miestu spawnu. |
-| `difficulty.*` | — | Rýchlosti, intervaly, odomykanie typov a predvoľby obtiažnosti. |
+| `difficulty.levels` | 1,5–4,5 m/s | Pevné úrovne: rýchlosť, interval medzi vlnami a `level` (odomykanie typov, podiel obrancov). |
 
 ## Štruktúra projektu
 
@@ -201,11 +212,11 @@ tests/             unit testy (Vitest)
 
 - dwell, hysteréza, krátke výpadky pohľadu, cooldown a kurzor,
 - prechody stavového automatu,
-- pauza zmrazí prekážky, čas, spawn aj obtiažnosť,
+- pauza zmrazí prekážky, čas, spawn aj hlavu hore,
 - pokračovanie ide presne odtiaľ, kde hra stála: rovnaký výsledok ako hra bez pauzy,
 - swept kolízie hlavy (zohnutie, úkrok, medzera, rýchla prekážka pri veľkom kroku, tesné minutie),
-- skóre, combo, životy, krivky obtiažnosti,
-- spravodlivosť spawnu: property test na 500 seedoch × 3 obtiažnosti × 5 minút,
+- skóre, combo, životy, pevné úrovne obtiažnosti (hra sa nezrýchľuje),
+- spravodlivosť spawnu: property test na 300 seedoch × 5 úrovniach × 5 minút,
 - rozostupy tlačidiel,
 - simulácia 5 minút bežného hrania, počas ktorej sa Pauza sama nespustí,
 - sledovanie puku kamerou: nájdenie zeleného biscuitu a oranžovej loptičky na dreve, premietnutie na podlahu,

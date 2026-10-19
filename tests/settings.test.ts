@@ -21,7 +21,7 @@ describe('nastavenia', () => {
       dwellTime: 1.2,
       pauseSide: 'right',
       pausePosition: 'side',
-      difficulty: 'medium',
+      difficulty: 'easy',
       floorObstacles: true,
       headUp: true,
       countdown: 2,
@@ -49,7 +49,9 @@ describe('nastavenia', () => {
     expect(s.dwellTime).toBe(2);
     expect(s.pauseSide).toBe('right');
     expect(s.pausePosition).toBe('top');
-    expect(s.difficulty).toBe('medium');
+    expect(s.difficulty).toBe('easy');
+    expect(sanitizeSettings({ difficulty: 'pro' }, CONFIG).difficulty).toBe('pro');
+    expect(sanitizeSettings({ difficulty: 'warmup' }, CONFIG).difficulty).toBe('warmup');
     expect(s.countdown).toBe(1);
     expect(s.eyeHeight).toBeNull();
     expect(sanitizeSettings({ dwellTime: 1.13 }, CONFIG).dwellTime).toBe(1.2);
@@ -75,11 +77,15 @@ describe('nastavenia', () => {
 
   it('rekordy sa vedú pre každú obtiažnosť zvlášť', () => {
     const storage = new MemoryStorage();
-    expect(loadBest(storage)).toEqual({ easy: 0, medium: 0, hard: 0 });
-    saveBest(storage, { easy: 10, medium: 2500, hard: 0 });
-    expect(loadBest(storage)).toEqual({ easy: 10, medium: 2500, hard: 0 });
+    const zero = { warmup: 0, easy: 0, medium: 0, hard: 0, pro: 0 };
+    expect(loadBest(storage)).toEqual(zero);
+    saveBest(storage, { ...zero, easy: 10, medium: 2500, pro: 7 });
+    expect(loadBest(storage)).toEqual({ ...zero, easy: 10, medium: 2500, pro: 7 });
     storage.setItem(BEST_KEY, JSON.stringify({ medium: -5, hard: 'x' }));
-    expect(loadBest(storage)).toEqual({ easy: 0, medium: 0, hard: 0 });
+    expect(loadBest(storage)).toEqual(zero);
+    // Staré rekordy z hry so zrýchľovaním (v1) sa nenačítajú.
+    storage.setItem('dangleRush.best.v1', JSON.stringify({ medium: 9999 }));
+    expect(loadBest(storage)).toEqual(zero);
   });
 });
 

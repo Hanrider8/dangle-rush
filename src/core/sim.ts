@@ -1,11 +1,12 @@
 /**
- * Herná simulácia počas PLAYING: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre, obtiažnosť.
+ * Herná simulácia počas PLAYING: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre.
+ * Obtiažnosť je pevná (rýchlosť a tempo sa nastavia pri reset).
  * Krokuje sa len v stave PLAYING, takže pauza zmrazí všetko vrátane času a spawnu.
  * Deterministická: rovnaký seed a rovnaké pózy hlavy dajú rovnaký priebeh.
  */
 import type { Config } from '../config';
 import { sweptHeadHit } from './collision';
-import { intervalAt, levelAt, speedAt } from './difficulty';
+import { levelParams } from './difficulty';
 import type { EventQueue } from './events';
 import { HeadUpDrill, SIGNAL_SEEN } from './headUp';
 import {
@@ -75,8 +76,10 @@ export class GameplaySim {
 
   /** Čistý herný čas v sekundách. */
   time = 0;
+  /** Pevné parametre obtiažnosti (nastavia sa pri reset, počas hry sa nemenia). */
   level = 0;
   speed = 0;
+  interval = 0;
   spawnTimer = 0;
   /** Prestávka v spawne po zásahu. */
   spawnPause = 0;
@@ -115,8 +118,10 @@ export class GameplaySim {
     this.difficulty = difficulty;
     this.floorEnabled = floorEnabled;
     this.time = 0;
-    this.level = levelAt(0, difficulty, this.cfg.difficulty);
-    this.speed = speedAt(this.level, this.cfg.difficulty);
+    const p = levelParams(difficulty, this.cfg.difficulty);
+    this.level = p.level;
+    this.speed = p.speed;
+    this.interval = p.interval;
     this.spawnTimer = this.cfg.rules.firstSpawnDelay;
     this.spawnPause = 0;
     this.lives = this.cfg.rules.lives;
@@ -140,8 +145,6 @@ export class GameplaySim {
   step(dt: number, h0: Vec3, h1: Vec3, puck: PuckSample = NO_PUCK, fwd: Vec3 = LOOK_DOWN): void {
     const cfg = this.cfg;
     this.time += dt;
-    this.level = levelAt(this.time, this.difficulty, cfg.difficulty);
-    this.speed = speedAt(this.level, cfg.difficulty);
     this.score += cfg.rules.timeBonusPerSecond * dt;
 
     const radius = cfg.head.radius;
@@ -197,7 +200,7 @@ export class GameplaySim {
       if (w) {
         this.spawnWave(w);
         // Ďalšia vlna počká aj na koniec vzoru (slalom, hviezdy, široké miesanie).
-        this.spawnTimer += intervalAt(this.level, cfg.difficulty) + (w.arrivalEnd - w.arrival);
+        this.spawnTimer += this.interval + (w.arrivalEnd - w.arrival);
       }
     }
   }

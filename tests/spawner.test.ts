@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
-import { intervalAt, levelAt, speedAt } from '../src/core/difficulty';
+import { levelParams } from '../src/core/difficulty';
 import { EventQueue } from '../src/core/events';
 import { headWindow, lowBarGap } from '../src/core/obstacles';
-import type { Difficulty } from '../src/core/settings';
+import { DIFFICULTIES, type Difficulty } from '../src/core/settings';
 import { GameplaySim } from '../src/core/sim';
 import { Spawner, createWave, type WaveSpec } from '../src/core/spawner';
 import type { FloorKind } from '../src/core/types';
@@ -25,14 +25,13 @@ function waves(seed: number, difficulty: Difficulty, seconds: number, floor = tr
   const out: Recorded[] = [];
   const dt = 1 / 30;
   let next = CONFIG.rules.firstSpawnDelay;
+  const { level, speed, interval } = levelParams(difficulty, CONFIG.difficulty);
   for (let t = 0; t < seconds; t += dt) {
     if (t < next) continue;
-    const level = levelAt(t, difficulty, CONFIG.difficulty);
-    const speed = speedAt(level, CONFIG.difficulty);
     const w = spawner.next(t, level, speed, floor);
     if (!w) continue;
     out.push({ ...w, floorXs: w.floorXs.slice(), time: t, level, speed });
-    next = t + intervalAt(level, CONFIG.difficulty) + (w.arrivalEnd - w.arrival);
+    next = t + interval + (w.arrivalEnd - w.arrival);
   }
   return out;
 }
@@ -131,17 +130,41 @@ describe('spawner', () => {
     expect(bodies / total).toBeLessThan(CONFIG.spawn.bodyShareMax + 0.02);
   });
 
-  it('typy pribúdajú postupne a kombinácie až od strednej obtiažnosti', () => {
+  it('typy pribúdajú s úrovňou a kombinácie až od strednej obtiažnosti', () => {
     const u = CONFIG.difficulty.unlock;
-    for (let seed = 1; seed <= 30; seed++) {
-      for (const w of waves(seed, 'medium', 240)) {
+    for (const difficulty of DIFFICULTIES) {
+      for (let seed = 1; seed <= 10; seed++) {
+        for (const w of waves(seed, difficulty, 240)) {
         if (w.level < u.sideBlock) expect(w.body).toBeNull();
         if (w.level < u.doubleBlock) expect(w.body).not.toBe('doubleBlock');
         if (w.level < u.slalom) expect(w.floor).not.toBe('slalom');
         if (w.level < u.wideDangle) expect(w.floor).not.toBe('wideDangle');
         if (w.level < u.pokeCheck) expect(w.floor).not.toBe('pokeCheck');
         if (w.level < u.combos) expect(w.body !== null && w.floor !== null).toBe(false);
+        }
       }
+    }
+  });
+
+  it('úrovne podľa tabuľky: rozcvička len brány, hviezdy a tyč; ľahká bez dvojice; stredná všetko', () => {
+    const kinds = (d: Difficulty) => {
+      const set = new Set<string>();
+      for (let seed = 1; seed <= 10; seed++) {
+        for (const w of waves(seed, d, 300)) {
+          if (w.body) set.add(w.body);
+          if (w.floor) set.add(w.floor);
+          if (w.body && w.floor) set.add('combo');
+        }
+      }
+      return set;
+    };
+    expect(kinds('warmup')).toEqual(new Set(['lowBar', 'coneGate', 'stars']));
+    const easy = kinds('easy');
+    for (const k of ['slalom', 'wideDangle', 'sideBlock']) expect(easy.has(k)).toBe(true);
+    for (const k of ['doubleBlock', 'pokeCheck', 'combo']) expect(easy.has(k)).toBe(false);
+    for (const d of ['medium', 'hard', 'pro'] as const) {
+      const all = kinds(d);
+      for (const k of [...FLOOR_KINDS, 'sideBlock', 'doubleBlock', 'combo']) expect(all.has(k)).toBe(true);
     }
   });
 
@@ -194,25 +217,25 @@ describe('spawner', () => {
     expect(errors.some((e) => e.includes('príliš rýchlo'))).toBe(true);
   });
 
-  it('property test: 500 seedov × 3 obtiažnosti × 5 minút bez porušenia pravidiel', () => {
+  it('property test: 300 seedov × 5 úrovní × 5 minút bez porušenia pravidiel', () => {
     const problems: string[] = [];
     let total = 0;
-    for (const difficulty of ['easy', 'medium', 'hard'] as const) {
-      for (let seed = 1; seed <= 500; seed++) {
+    for (const difficulty of DIFFICULTIES) {
+      for (let seed = 1; seed <= 300; seed++) {
         const list = waves(seed * 7919 + 1, difficulty, 300);
         total += list.length;
         for (const e of check(list)) problems.push(`${difficulty}/${seed} ${e}`);
       }
     }
     expect(problems.slice(0, 10)).toEqual([]);
-    expect(total).toBeGreaterThan(1500 * 70);
+    expect(total).toBeGreaterThan(1500 * 50);
   });
 });
 
 describe('skutočný príchod prekážok v simulácii', () => {
-  it('obrancovia pri hráčovi dodržia rozostup aj pri zrýchľovaní', () => {
-    for (const difficulty of ['medium', 'hard'] as const) {
-      for (let seed = 1; seed <= 40; seed++) {
+  it('obrancovia pri hráčovi dodržia rozostup na každej úrovni s obrancami', () => {
+    for (const difficulty of ['easy', 'medium', 'hard', 'pro'] as const) {
+      for (let seed = 1; seed <= 25; seed++) {
         const events = new EventQueue(256);
         const sim = new GameplaySim(CONFIG, events);
         sim.reset(seed, 1.7, difficulty, true);

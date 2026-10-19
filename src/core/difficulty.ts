@@ -1,24 +1,19 @@
 /**
- * Obtiažnosť rastie s čistým herným časom (pauzy sa nerátajú). Úroveň d ∈ ⟨0, maxLevel⟩
- * určuje rýchlosť prekážok, interval spawnu a odomknuté typy prekážok.
+ * Pevné úrovne obtiažnosti (config.difficulty.levels): počas hry sa rýchlosť ani tempo nemenia.
+ * Úroveň level ∈ ⟨0, 1⟩ určuje odomknuté typy prekážok, podiel obrancov a pravidlá spravodlivosti.
  */
 import type { Config } from '../config';
-import { clamp, lerp } from './math';
 import type { Difficulty } from './settings';
 
-type DifficultyConfig = Config['difficulty'];
-
-export function levelAt(time: number, difficulty: Difficulty, cfg: DifficultyConfig): number {
-  const p = cfg.presets[difficulty];
-  return clamp(p.startLevel + time / p.rampSeconds, 0, p.maxLevel);
+export interface LevelParams {
+  /** 0–1: odomknuté typy prekážok, podiel obrancov, kombinácie. */
+  level: number;
+  /** Rýchlosť prekážok (m/s). */
+  speed: number;
+  /** Čas medzi vlnami (s); po vzore sa predĺži o jeho dĺžku. */
+  interval: number;
 }
 
-/** Rýchlosť prekážok v m/s (~2 → 5). */
-export function speedAt(level: number, cfg: DifficultyConfig): number {
-  return lerp(cfg.speedMin, cfg.speedMax, level);
-}
-
-/** Interval medzi vlnami v sekundách (~2,5 → 1,0). */
-export function intervalAt(level: number, cfg: DifficultyConfig): number {
-  return lerp(cfg.intervalMax, cfg.intervalMin, level);
+export function levelParams(difficulty: Difficulty, cfg: Config['difficulty']): LevelParams {
+  return cfg.levels[difficulty];
 }

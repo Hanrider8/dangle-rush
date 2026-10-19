@@ -151,12 +151,19 @@ export const CONFIG = {
   },
 
   difficulty: {
-    speedMin: 2,
-    speedMax: 5,
-    /** Interval medzi vlnami (2,0 → 1,0 s); po vzore sa predĺži o jeho dĺžku. */
-    intervalMax: 2.0,
-    intervalMin: 1.0,
-    /** Úroveň d (0–1), od ktorej sa odomknú typy prekážok; 0,4 = „stredná obtiažnosť“. */
+    /**
+     * Pevné úrovne obtiažnosti: počas hry sa nič nezrýchľuje. level (0–1) určuje odomknuté typy prekážok,
+     * podiel obrancov a pravidlá spravodlivosti, speed je rýchlosť prekážok (m/s), interval čas medzi
+     * vlnami (s; po vzore sa predĺži o jeho dĺžku).
+     */
+    levels: {
+      warmup: { level: 0, speed: 1.5, interval: 2.6 },
+      easy: { level: 0.2, speed: 2.0, interval: 2.2 },
+      medium: { level: 0.45, speed: 2.7, interval: 1.8 },
+      hard: { level: 0.7, speed: 3.5, interval: 1.4 },
+      pro: { level: 1, speed: 4.5, interval: 1.1 },
+    },
+    /** Úroveň level (0–1), od ktorej sa odomknú typy prekážok; 0,4 = „stredná obtiažnosť“. */
     unlock: {
       highBar: 0,
       sideBlock: 0.15,
@@ -168,11 +175,6 @@ export const CONFIG = {
       wideDangle: 0.2,
       pokeCheck: 0.3,
       combos: 0.4,
-    },
-    presets: {
-      easy: { startLevel: 0, rampSeconds: 240, maxLevel: 0.7 },
-      medium: { startLevel: 0, rampSeconds: 150, maxLevel: 1 },
-      hard: { startLevel: 0.45, rampSeconds: 110, maxLevel: 1 },
     },
   },
 

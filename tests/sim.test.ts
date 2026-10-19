@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
-import { intervalAt, levelAt, speedAt } from '../src/core/difficulty';
+import { levelParams } from '../src/core/difficulty';
+import { DIFFICULTIES } from '../src/core/settings';
 import { EventQueue } from '../src/core/events';
 import { makeHighBar, makeLowBar, type Obstacle } from '../src/core/obstacles';
 import { comboMultiplier } from '../src/core/scoring';
@@ -142,37 +143,42 @@ describe('prekážky', () => {
 });
 
 describe('obtiažnosť', () => {
-  it('rastie s herným časom: rýchlosť 2 → 5 m/s, interval sa skracuje', () => {
+  it('päť pevných úrovní: rýchlosť rastie, interval sa skracuje, odomykanie podľa level', () => {
     const d = CONFIG.difficulty;
-    let prev = -1;
-    for (let t = 0; t <= 300; t += 5) {
-      const level = levelAt(t, 'medium', d);
-      expect(level).toBeGreaterThanOrEqual(prev);
-      prev = level;
+    const params = DIFFICULTIES.map((x) => levelParams(x, d));
+    expect(DIFFICULTIES).toEqual(['warmup', 'easy', 'medium', 'hard', 'pro']);
+    for (let i = 1; i < params.length; i++) {
+      expect(params[i]!.level).toBeGreaterThan(params[i - 1]!.level);
+      expect(params[i]!.speed).toBeGreaterThan(params[i - 1]!.speed);
+      expect(params[i]!.interval).toBeLessThan(params[i - 1]!.interval);
     }
-    expect(speedAt(levelAt(0, 'medium', d), d)).toBe(2);
-    expect(speedAt(levelAt(1000, 'medium', d), d)).toBe(5);
-    expect(intervalAt(levelAt(0, 'medium', d), d)).toBe(d.intervalMax);
-    expect(intervalAt(levelAt(1000, 'medium', d), d)).toBe(d.intervalMin);
-    expect(d.intervalMin).toBeLessThan(d.intervalMax);
+    expect(levelParams('warmup', d).level).toBeLessThan(d.unlock.slalom);
+    expect(levelParams('easy', d).level).toBeGreaterThanOrEqual(d.unlock.sideBlock);
+    expect(levelParams('easy', d).level).toBeLessThan(d.unlock.pokeCheck);
+    expect(levelParams('medium', d).level).toBeGreaterThanOrEqual(d.unlock.doubleBlock);
+    expect(levelParams('medium', d).level).toBeGreaterThanOrEqual(d.unlock.combos);
   });
 
-  it('predvoľby: ľahká má nižšie maximum, ťažká začína nad strednou hranicou', () => {
-    const d = CONFIG.difficulty;
-    expect(levelAt(1000, 'easy', d)).toBeLessThan(1);
-    expect(levelAt(0, 'hard', d)).toBeGreaterThanOrEqual(d.unlock.doubleBlock);
-    expect(levelAt(60, 'hard', d)).toBeGreaterThan(levelAt(60, 'medium', d));
-  });
-
-  it('prekážka je viditeľná dosť dlho na reakciu aj pri najvyššej rýchlosti', () => {
-    const maxSpeed = Math.max(...(['easy', 'medium', 'hard'] as const).map((p) => speedAt(levelAt(1e6, p, CONFIG.difficulty), CONFIG.difficulty)));
+  it('prekážka je viditeľná dosť dlho na reakciu aj na najvyššej úrovni', () => {
+    const maxSpeed = Math.max(...DIFFICULTIES.map((x) => levelParams(x, CONFIG.difficulty).speed));
     expect(CONFIG.obstacles.spawnDistance / maxSpeed).toBeGreaterThanOrEqual(CONFIG.fairness.minReactionTime);
   });
 
-  it('úroveň v simulácii rastie len s herným časom', () => {
-    const { sim } = makeSim();
-    stepFor(sim, 20, DUCKED);
-    expect(sim.level).toBeCloseTo(levelAt(sim.time, 'medium', CONFIG.difficulty), 12);
-    expect(sim.speed).toBeCloseTo(speedAt(sim.level, CONFIG.difficulty), 12);
+  it('hra sa nezrýchľuje: úroveň, rýchlosť aj interval sú po 5 minútach rovnaké ako na začiatku', () => {
+    for (const difficulty of DIFFICULTIES) {
+      const events = new EventQueue(1024);
+      const sim = new GameplaySim(CONFIG, events);
+      sim.reset(3, H, difficulty, true);
+      const p = levelParams(difficulty, CONFIG.difficulty);
+      expect(sim.speed).toBe(p.speed);
+      for (let i = 0; i < 300 * 120; i++) {
+        sim.step(CONFIG.sim.fixedDt, DUCKED, DUCKED);
+        events.clear();
+        if (sim.lives <= 0) break;
+      }
+      expect(sim.level).toBe(p.level);
+      expect(sim.speed).toBe(p.speed);
+      expect(sim.interval).toBe(p.interval);
+    }
   });
 });

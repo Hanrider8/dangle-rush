@@ -60,6 +60,7 @@ src/core/       čistá logika: bez three.js a DOM, deterministická, fixný kro
   gaze.ts       dwell, hysteréza, grace, cooldown, „arming“ tlačidiel, kurzor
   layout.ts     pozície panelov a tlačidiel (v stupňoch od kotvy; predná kotva a kotva pauzy)
   sim.ts        GameplaySim: pohyb a spawn prekážok, swept kolízie hlavy, životy, skóre (krokuje sa len v PLAYING)
+  difficulty.ts levelParams: 5 pevných úrovní (warmup/easy/medium/hard/pro) z config.difficulty.levels
   headUp.ts     HeadUpDrill (hlava hore): spoluhráč nad horizontom čaká na pohľad; escalation(), darkness(),
                 spread(), blink(), pripomenutia signalNag
   obstacles.ts  typy prekážok, kolízne kvádre obrancov, vzory na zemi (elemDz/elemX/elemPuckX), pokeCheckCenter
@@ -114,6 +115,8 @@ Kľúčové invarianty:
   - rozostupy tlačidiel sú aspoň 2 × hysteréza (test).
 - **Vzory na zemi** (slalom, hviezdy, široké miesanie): prvky sú za čelom prekážky (`elemDz ≤ 0`).
   Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
+- **Obtiažnosť je pevná:** `sim.reset` nastaví `level`, `speed` a `interval` podľa úrovne a `step` ich nemení
+  (hra sa nezrýchľuje). Rekordy sú v `dangleRush.best.v2` pre každú úroveň.
 - **Pohyblivá hokejka** závisí len od `z` (`pokeCheckCenter`), takže ju pauza zmrazí. Presun skončí `settleTime`
   pred príchodom k puku.
 - **Posúdenie puku** (`sim.judgeFloor`): puk je vstup ako póza hlavy (`Game.update(dt, head, puck)`), takže pauza

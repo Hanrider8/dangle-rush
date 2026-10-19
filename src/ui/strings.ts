@@ -2,9 +2,11 @@
 import type { Difficulty, PausePosition, PauseSide } from '../core/settings';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  warmup: 'rozcvička',
   easy: 'ľahká',
   medium: 'stredná',
   hard: 'ťažká',
+  pro: 'pro',
 };
 
 export const PAUSE_SIDE_LABEL: Record<PauseSide, string> = { left: 'vľavo', right: 'vpravo' };
