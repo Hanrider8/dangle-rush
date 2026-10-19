@@ -22,6 +22,7 @@ describe('nastavenia', () => {
       pauseSide: 'right',
       pausePosition: 'side',
       difficulty: 'easy',
+      dekerSize: 'medium',
       floorObstacles: true,
       headUp: true,
       countdown: 2,

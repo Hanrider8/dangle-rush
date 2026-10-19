@@ -34,10 +34,12 @@ import {
   cycleFrameRate,
   loadBest,
   loadSettings,
+  nextDekerSize,
   nextDifficulty,
   saveBest,
   saveSettings,
   type BestScores,
+  type DekerSize,
   type Difficulty,
   type KeyValueStorage,
   type Settings,
@@ -85,6 +87,8 @@ export interface GameResult {
   best: number;
   newBest: boolean;
   difficulty: Difficulty;
+  /** Deker: veľkosť cieľa. */
+  dekerSize: DekerSize;
 }
 
 export type PauseCause = AutoPauseReason | 'button';
@@ -343,6 +347,10 @@ export class Game {
         // Platí od ďalšej novej hry (rekord sa vedie pre obtiažnosť rozohranej hry).
         s.difficulty = nextDifficulty(s.difficulty);
         break;
+      case 'set.dekerSize':
+        // Platí od ďalšej novej hry (ako obtiažnosť).
+        s.dekerSize = nextDekerSize(s.dekerSize);
+        break;
       case 'set.floor':
         s.floorObstacles = !s.floorObstacles;
         if (this.mode === 'rush') this.sim.floorEnabled = s.floorObstacles;
@@ -389,7 +397,7 @@ export class Game {
     // V Dekeri ostane simulácia DangleRush prázdna: žiadne prekážky ani spoluhráč (tma).
     const rush = this.mode === 'rush';
     this.sim.reset(this.seed, this.eyeHeight, s.difficulty, rush && s.floorObstacles, rush && s.headUp);
-    this.deker.reset(this.seed, s.difficulty);
+    this.deker.reset(this.seed, s.difficulty, s.dekerSize);
     this.result = null;
   }
 
@@ -451,6 +459,7 @@ export class Game {
       best: best[d],
       newBest,
       difficulty: d,
+      dekerSize: deker.size,
     };
     this.setState('GAME_OVER');
     this.events.push('gameOver', newBest ? 'best' : '', score);

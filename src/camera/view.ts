@@ -129,7 +129,9 @@ export class TrackerView {
     const age = nowMs - p.received;
     const ringCfg = this.cfg.camera.ring;
     const playing = game.state === 'PLAYING' || game.state === 'COUNTDOWN';
-    this.ring.visible = running && p.valid && age < ringCfg.hideMs && (calibrating || !playing || ringCfg.showWhilePlaying);
+    // V Dekeri s debugom aj počas hrania: kde hra vidí puk voči svetlu (ladenie sledovania).
+    const showPlaying = ringCfg.showWhilePlaying || (game.dekerOn && game.settings.debug);
+    this.ring.visible = running && p.valid && age < ringCfg.hideMs && (calibrating || !playing || showPlaying);
     if (this.ring.visible) {
       this.ring.position.set(p.x, 0.004, p.z);
       this.ring.scale.setScalar(tracker.targetRadius * 2 * GLOW_SCALE);

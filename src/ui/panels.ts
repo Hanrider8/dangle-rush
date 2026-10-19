@@ -14,6 +14,7 @@ import { COLORS, CORNER, CanvasPanel, FONT_FAMILY, accentTick, fitText, placeOnR
 import { DebugOverlay } from './debugOverlay';
 import { Hud } from './hud';
 import {
+  DEKER_SIZE_LABEL,
   DIFFICULTY_LABEL,
   PAUSE_POSITION_LABEL,
   PAUSE_SIDE_LABEL,
@@ -46,6 +47,8 @@ function buttonLabel(id: ButtonId, s: Settings): [string, string?, boolean?] {
       return [t.dwell, formatSeconds(s.dwellTime)];
     case 'set.difficulty':
       return [t.difficulty, DIFFICULTY_LABEL[s.difficulty]];
+    case 'set.dekerSize':
+      return [t.dekerSize, DEKER_SIZE_LABEL[s.dekerSize]];
     case 'set.floor':
       return [t.floor, s.floorObstacles ? t.on : t.off];
     case 'set.headUp':
@@ -328,6 +331,7 @@ function drawResults(panel: CanvasPanel, game: Game): void {
       // Bez kamery sa svetlá len striedali: ukáže sa ich počet.
       rows.push([t.targets, r.targetsJudged > 0 ? `${r.targetsHit} / ${r.targetsJudged}` : `${r.targetsShown} · ${t.noCamera}`]);
       rows.push([t.avgHit, r.targetsHit > 0 ? formatSeconds(r.avgHitTime, 2) : '–']);
+      rows.push([t.targetSize, DEKER_SIZE_LABEL[r.dekerSize]]);
       rows.push([t.maxCombo, String(r.maxCombo)]);
       rows.push([`${t.best} (${STRINGS.modes.deker}, ${DIFFICULTY_LABEL[r.difficulty]})`, formatScore(r.best)]);
     } else {

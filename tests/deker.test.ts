@@ -3,7 +3,17 @@ import { CONFIG } from '../src/config';
 import { DekerSim } from '../src/core/deker';
 import { EventQueue, type GameEvent } from '../src/core/events';
 import type { Game } from '../src/core/game';
-import { BEST_DEKER_KEY, BEST_KEY, type Difficulty } from '../src/core/settings';
+import {
+  BEST_DEKER_KEY,
+  BEST_KEY,
+  DEKER_SIZES,
+  MemoryStorage,
+  SETTINGS_KEY,
+  loadSettings,
+  nextDekerSize,
+  type DekerSize,
+  type Difficulty,
+} from '../src/core/settings';
 import { createPuckSample, type PuckSample } from '../src/core/types';
 import { headAt, makeGame, press, run, standing, startPlaying } from './helpers';
 
@@ -12,10 +22,10 @@ const D = CONFIG.deker;
 /** Stred podložky: puk tu čaká, kým sa nerozsvieti svetlo (svetlo sa rozsvieti aspoň minJump odtiaľto). */
 const AWAY = { x: 0, z: -D.mat.centerDistance };
 
-function makeSim(seed = 1, difficulty: Difficulty = 'easy') {
+function makeSim(seed = 1, difficulty: Difficulty = 'easy', size: DekerSize = 'large') {
   const events = new EventQueue();
   const sim = new DekerSim(CONFIG, events);
-  sim.reset(seed, difficulty);
+  sim.reset(seed, difficulty, size);
   return { sim, events };
 }
 
@@ -130,14 +140,14 @@ describe('Deker: svetlá', () => {
   });
 
   it('miesto pre svetlá je na podložke a dosť veľké na skok minJump', () => {
-    const { sim } = makeSim();
+    const { sim } = makeSim(1, 'easy', 'large');
     const { width, depth, centerDistance } = D.mat;
-    expect(sim.minX - D.padRadius).toBeGreaterThanOrEqual(-width / 2);
-    expect(sim.maxX + D.padRadius).toBeLessThanOrEqual(width / 2);
-    expect(sim.minZ - D.padRadius).toBeGreaterThanOrEqual(-centerDistance - depth / 2);
-    expect(sim.maxZ + D.padRadius).toBeLessThanOrEqual(-centerDistance + depth / 2);
-    // Nové svetlo nikdy nie je pod pukom a z ktoréhokoľvek miesta sa dá skočiť aspoň o minJump.
-    expect(D.minJump).toBeGreaterThan(D.hitRadius);
+    expect(sim.minX - sim.radius).toBeGreaterThanOrEqual(-width / 2);
+    expect(sim.maxX + sim.radius).toBeLessThanOrEqual(width / 2);
+    expect(sim.minZ - sim.radius).toBeGreaterThanOrEqual(-centerDistance - depth / 2);
+    expect(sim.maxZ + sim.radius).toBeLessThanOrEqual(-centerDistance + depth / 2);
+    // Nové svetlo nikdy nie je pod pukom (ani pri najväčšom cieli) a dá sa skočiť aspoň o minJump.
+    expect(D.minJump).toBeGreaterThan(sim.hitRadius);
     expect(sim.maxX - sim.minX).toBeGreaterThan(2 * D.minJump);
     expect(sim.maxZ - sim.minZ).toBeGreaterThan(D.minJump);
   });
@@ -231,6 +241,38 @@ describe('Deker: zásahy a body', () => {
     expect(sim.score).toBe(score);
   });
 
+  it('veľkosť cieľa: menší cieľ má menší polomer zásahu a dá viac bodov', () => {
+    const hitAt = (size: DekerSize, offset: number) => {
+      const { sim, events } = makeSim(7, 'easy', size);
+      untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
+      // Puk 0,2 s po rozsvietení `offset` m vedľa stredu svetla.
+      advance(sim, events, 0.3, (s) => (s.lit && s.targetAge >= 0.2 ? puckAt(s.targetX + offset, s.targetZ) : puckAt(AWAY.x, AWAY.z)));
+      return sim;
+    };
+    expect(DEKER_SIZES.map((s) => makeSim(1, 'easy', s).sim.radius)).toEqual([0.1, 0.07, 0.05]);
+    for (const size of DEKER_SIZES) {
+      const r = D.targetSizes[size].radius + D.hitTolerance;
+      expect(hitAt(size, r - 0.005).hits).toBe(1);
+      expect(hitAt(size, r + 0.005).hits).toBe(0);
+    }
+    const scores = DEKER_SIZES.map((s) => hitAt(s, 0).score);
+    expect(scores[1]).toBeGreaterThan(scores[0]!);
+    expect(scores[2]).toBeGreaterThan(scores[1]!);
+    expect(scores[2]).toBeCloseTo(scores[0]! * D.targetSizes.small.score, -1);
+  });
+
+  it('nastavenie veľkosti cieľa: predvolený stredný, cyklus a validácia', () => {
+    const storage = new MemoryStorage();
+    expect(loadSettings(storage, CONFIG).dekerSize).toBe('medium');
+    expect(nextDekerSize('large')).toBe('medium');
+    expect(nextDekerSize('medium')).toBe('small');
+    expect(nextDekerSize('small')).toBe('large');
+    storage.setItem(SETTINGS_KEY, JSON.stringify({ dekerSize: 'small' }));
+    expect(loadSettings(storage, CONFIG).dekerSize).toBe('small');
+    storage.setItem(SETTINGS_KEY, JSON.stringify({ dekerSize: 'obrovský' }));
+    expect(loadSettings(storage, CONFIG).dekerSize).toBe('medium');
+  });
+
   it('limit na svetlo závisí od obtiažnosti', () => {
     for (const d of ['warmup', 'easy', 'medium', 'hard', 'pro'] as const) {
       expect(makeSim(1, d).sim.timeout).toBe(D.targetTime[d]);
@@ -294,6 +336,21 @@ describe('Deker v hre', () => {
     expect(game.sim.time).toBe(0);
     expect(game.sim.obstacles.some((o) => o.active)).toBe(false);
     expect(game.layout.buttons.map((b) => b.id)).toEqual(['newGame', 'menu', 'settings']);
+  });
+
+  it('veľkosť cieľa z nastavení platí od novej hry a je vo výsledku', () => {
+    const { game } = makeGame();
+    run(game, 0.1, standing());
+    press(game, 'settings');
+    press(game, 'set.dekerSize');
+    expect(game.settings.dekerSize).toBe('small');
+    press(game, 'set.back');
+    press(game, 'startDeker');
+    expect(game.deker.size).toBe('small');
+    expect(game.deker.hitRadius).toBeCloseTo(D.targetSizes.small.radius + D.hitTolerance, 9);
+    run(game, game.settings.countdown + 0.1, looking());
+    playDeker(game, D.roundTime + 1);
+    expect(game.result!.dekerSize).toBe('small');
   });
 
   it('Nová hra spustí znova Deker, Menu sa vráti do hlavného menu', () => {

@@ -4,8 +4,9 @@
  *
  * - Svetlo: náhodne na podložke (config.deker.mat bez edgeMargin pri okraji), aspoň minJump od predošlého
  *   svetla aj od puku, takže puk treba vždy presunúť.
- * - Zásah: kamera zachytila puk na svetle až po jeho rozsvietení. Body za zásah rastú s rýchlosťou
- *   (okamžitý zásah až (1 + speedBonus) ×) a s combo násobiteľom, potom sa rozsvieti ďalšie svetlo.
+ * - Zásah: kamera zachytila puk na svetle (do polomeru cieľa + hitTolerance) až po jeho rozsvietení.
+ *   Body za zásah rastú s rýchlosťou (okamžitý zásah až (1 + speedBonus) ×), s combo násobiteľom a pri
+ *   menšom cieli (targetSizes), potom sa rozsvieti ďalšie svetlo.
  * - Limit (targetTime podľa obtiažnosti): ak kamera počas svietenia puk videla, je to minutie (combo sa
  *   vynuluje). Bez puku je to len prechod: svetlá sa menia v rytme, body ani combo sa nerátajú.
  * - Kolo trvá roundTime herného času.
@@ -17,7 +18,7 @@ import type { Config } from '../config';
 import type { EventQueue } from './events';
 import { Rng } from './rng';
 import { comboMultiplier } from './scoring';
-import type { Difficulty } from './settings';
+import type { DekerSize, Difficulty } from './settings';
 import type { PuckSample } from './types';
 
 /** Odvodenie seedu, aby sa náhoda svetiel nemiešala s náhodou spawnera. */
@@ -56,6 +57,11 @@ export class DekerSim {
   /** Ako dlho svieti jedno svetlo (podľa obtiažnosti). */
   timeout = 0;
   difficulty: Difficulty = 'easy';
+  size: DekerSize = 'medium';
+  /** Polomer svetla (render), polomer zásahu a násobok bodov podľa veľkosti cieľa. */
+  radius = 0;
+  hitRadius = 0;
+  sizeScore = 1;
   score = 0;
   combo = 0;
   maxCombo = 0;
@@ -99,9 +105,14 @@ export class DekerSim {
     this.maxZ = -d.mat.centerDistance + halfD;
   }
 
-  reset(seed: number, difficulty: Difficulty): void {
+  reset(seed: number, difficulty: Difficulty, size: DekerSize = 'large'): void {
     const d = this.cfg.deker;
+    const t = d.targetSizes[size];
     this.difficulty = difficulty;
+    this.size = size;
+    this.radius = t.radius;
+    this.hitRadius = t.radius + d.hitTolerance;
+    this.sizeScore = t.score;
     this.time = 0;
     this.duration = d.roundTime;
     this.timeout = d.targetTime[difficulty];
@@ -148,7 +159,7 @@ export class DekerSim {
       this.sawPuck = true;
       // Záber spred rozsvietenia sa neráta (kamera vidí puk s oneskorením puck.age).
       const reaction = this.targetAge - puck.age;
-      if (reaction >= 0 && Math.hypot(puck.x - this.targetX, puck.z - this.targetZ) <= this.cfg.deker.hitRadius) {
+      if (reaction >= 0 && Math.hypot(puck.x - this.targetX, puck.z - this.targetZ) <= this.hitRadius) {
         this.onHit(reaction);
         return;
       }
@@ -224,7 +235,8 @@ export class DekerSim {
   private onHit(reaction: number): void {
     const d = this.cfg.deker;
     const speed = Math.max(0, 1 - reaction / this.timeout);
-    this.score += Math.round(d.scorePerHit * (1 + d.speedBonus * speed) * comboMultiplier(this.combo, this.cfg.rules));
+    const multiplier = comboMultiplier(this.combo, this.cfg.rules) * this.sizeScore;
+    this.score += Math.round(d.scorePerHit * (1 + d.speedBonus * speed) * multiplier);
     this.combo++;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.hits++;

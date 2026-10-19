@@ -10,7 +10,7 @@ import { Game } from './core/game';
 import type { KeyValueStorage } from './core/settings';
 import { MAX_ELEMENTS } from './core/obstacles';
 import { createHeadSample, createPuckSample, type PuckSample } from './core/types';
-import { DekerView } from './render/deker';
+import { DekerView, type DekerFlash } from './render/deker';
 import { HitVignette } from './render/effects';
 import { FloorFeedback } from './render/feedback';
 import { Darkening, TeammateView } from './render/headUp';
@@ -227,15 +227,15 @@ export class App {
         break;
       case 'dekerHit':
         sfx.chime(this.game.deker.combo);
-        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'hit');
+        this.flashDeker('hit');
         break;
       case 'dekerMiss':
         sfx.miss();
-        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'miss');
+        this.flashDeker('miss');
         break;
       case 'dekerPass':
         sfx.swoosh(0.35);
-        this.deker.flash(this.game.deker.lastX, this.game.deker.lastZ, 'pass');
+        this.flashDeker('pass');
         break;
       case 'signal':
         sfx.call();
@@ -254,6 +254,12 @@ export class App {
         break;
     }
   };
+
+  /** Deker: záblesk na mieste práve posúdeného svetla. */
+  private flashDeker(kind: DekerFlash): void {
+    const d = this.game.deker;
+    this.deker.flash(d.lastX, d.lastZ, d.radius, kind);
+  }
 
   /** Efekt pri prvku na zemi; code = id prekážky × MAX_ELEMENTS + prvok. */
   private spawnFeedback(code: number, kind: 'hit' | 'miss' | 'pass'): void {

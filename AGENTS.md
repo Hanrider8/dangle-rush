@@ -131,7 +131,10 @@ Kľúčové invarianty:
   Prekážka je prekonaná a zmizne podľa posledného prvku (`z − length`). Prvky ďalej ako `spawnDistance` render skryje.
 - **Deker** (`core/deker.ts`, `config.deker`) sa krokuje len v PLAYING ako `sim`, takže pauza ho zmrazí
   (test v `deker.test.ts`). Má vlastný seedovaný `Rng`; puk je vstup.
-  - Zásah platí len zo záberu urobeného po rozsvietení (`targetAge − puck.age ≥ 0`).
+  - Zásah platí len zo záberu urobeného po rozsvietení (`targetAge − puck.age ≥ 0`) a do polomeru cieľa
+    + `hitTolerance`. Veľkosť cieľa je nastavenie `dekerSize` (`config.deker.targetSizes`: polomer a násobok bodov).
+  - Ladenie sledovania: s debugom ukazuje `camera/view.ts` žiaru puku aj počas Dekera a debug overlay
+    vzdialenosť puku od svetla a vek záberu.
   - V Dekeri sa `sim` (DangleRush) resetuje bez prekážok aj bez hlavy hore.
   - Rekordy sú v `dangleRush.bestDeker.v1`.
   - HUD je bližšie pri podložke (`config.deker.hud`).

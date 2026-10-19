@@ -229,9 +229,11 @@ export function computeLayout(
           if (id) buttons.push(button(id, a, (c - 1) * col, (1 - r) * rowH, S));
         }
       }
-      // Štvrtý rad: obnovovacia frekvencia, hlava hore a s kamerou na puk aj kalibrácia puku (vycentrované).
-      const row4: ButtonId[] = ctx.puckTracking ? ['set.fps', 'set.headUp', 'set.puck'] : ['set.fps', 'set.headUp'];
-      row4.forEach((id, i) => buttons.push(button(id, a, (i - (row4.length - 1) / 2) * col, -2 * rowH, S)));
+      // Štvrtý rad: obnovovacia frekvencia, hlava hore a veľkosť cieľa v Dekeri; s kamerou na puk pod nimi
+      // ešte kalibrácia puku.
+      const row4: ButtonId[] = ['set.fps', 'set.headUp', 'set.dekerSize'];
+      row4.forEach((id, i) => buttons.push(button(id, a, (i - 1) * col, -2 * rowH, S)));
+      if (ctx.puckTracking) buttons.push(button('set.puck', a, 0, -3 * rowH, S));
       break;
     }
     case 'puck': {

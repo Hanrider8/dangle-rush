@@ -1,5 +1,5 @@
 /** Všetky texty v hre (po slovensky). */
-import type { Difficulty, PausePosition, PauseSide } from '../core/settings';
+import type { DekerSize, Difficulty, PausePosition, PauseSide } from '../core/settings';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   warmup: 'rozcvička',
@@ -8,6 +8,8 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   hard: 'ťažká',
   pro: 'pro',
 };
+
+export const DEKER_SIZE_LABEL: Record<DekerSize, string> = { large: 'veľký', medium: 'stredný', small: 'malý' };
 
 export const PAUSE_SIDE_LABEL: Record<PauseSide, string> = { left: 'vľavo', right: 'vpravo' };
 export const PAUSE_POSITION_LABEL: Record<PausePosition, string> = { side: 'bok', top: 'hore' };
@@ -64,12 +66,14 @@ export const STRINGS = {
     /** Deker */
     targets: 'Zásahy',
     avgHit: 'Priemerný čas',
+    targetSize: 'Cieľ',
     noCamera: 'bez kamery',
   },
   settings: {
     title: 'Nastavenia',
     dwell: 'Čas pohľadu',
     difficulty: 'Obtiažnosť',
+    dekerSize: 'Cieľ v Dekeri',
     floor: 'Prekážky na zemi',
     headUp: 'Hlava hore',
     pausePos: 'Poloha pauzy',

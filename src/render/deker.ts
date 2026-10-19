@@ -31,6 +31,7 @@ class Flash {
   readonly ring: FloorMesh;
   kind: DekerFlash = 'pass';
   time = -1;
+  radius = 0.1;
 
   constructor(r: Resources, guide: MeshBasicMaterial) {
     this.glow = new Mesh(r.geometry.floorPlane, guide.clone());
@@ -54,12 +55,10 @@ export class DekerView {
   /** Svietiace svetlo: škvrna a krúžok odpočtu (svieti vždy len jedno). */
   private readonly glow: FloorMesh;
   private readonly timer: FloorMesh;
-  private readonly radius: number;
   private time = 0;
 
   constructor(r: Resources, cfg: Config) {
     const d = cfg.deker;
-    this.radius = d.padRadius;
     this.root.name = 'deker';
     this.root.visible = false;
 
@@ -111,8 +110,6 @@ export class DekerView {
     const active = guide.clone();
     active.color.setHex(PALETTE.gap);
     this.glow = new Mesh(r.geometry.floorPlane, active);
-    const size = d.padRadius / GUIDE_RING;
-    this.glow.scale.set(size, 1, size);
     this.glow.position.y = 0.006;
     this.glow.renderOrder = 4;
     this.timer = new Mesh(
@@ -126,8 +123,11 @@ export class DekerView {
     this.root.add(this.glow, this.timer);
   }
 
-  /** Záblesk na mieste posúdeného svetla (udalosti dekerHit/Miss/Pass, poloha z DekerSim.lastX/lastZ). */
-  flash(x: number, z: number, kind: DekerFlash): void {
+  /**
+   * Záblesk na mieste posúdeného svetla (udalosti dekerHit/Miss/Pass, poloha z DekerSim.lastX/lastZ,
+   * polomer svetla podľa veľkosti cieľa).
+   */
+  flash(x: number, z: number, radius: number, kind: DekerFlash): void {
     // Voľný záblesk, inak najstarší v poradí.
     let f = this.flashes[this.next++ % FLASH_POOL]!;
     for (let i = 0; i < this.flashes.length; i++) {
@@ -138,6 +138,7 @@ export class DekerView {
     }
     f.kind = kind;
     f.time = 0;
+    f.radius = radius;
     f.group.position.set(x, 0, z);
     f.glow.material.color.setHex(kind === 'hit' ? PALETTE.hit : kind === 'miss' ? PALETTE.miss : PALETTE.gap);
     f.ring.visible = kind === 'hit';
@@ -161,12 +162,14 @@ export class DekerView {
     if (lit) {
       const x = deker.targetX;
       const z = deker.targetZ;
+      const size = deker.radius / GUIDE_RING;
+      this.glow.scale.set(size, 1, size);
       this.glow.position.x = x;
       this.glow.position.z = z;
       this.glow.material.opacity = 0.85 + 0.15 * Math.sin(this.time * PULSE_HZ * 2 * Math.PI);
       // Krúžok odpočtu: z dvojnásobku polomeru svetla k jeho okraju.
       const left = Math.max(0, 1 - deker.targetAge / deker.timeout);
-      const r = this.radius * (1 + left);
+      const r = deker.radius * (1 + left);
       this.timer.position.x = x;
       this.timer.position.z = z;
       this.timer.scale.set(r, 1, r);
@@ -188,11 +191,11 @@ export class DekerView {
     const t = Math.min(1, f.time / DURATION[f.kind]);
     const fade = START_OPACITY[f.kind] * (1 - t) * (1 - t);
     const grow = f.kind === 'hit' ? 1 + 0.3 * t : 1;
-    const size = (this.radius / GUIDE_RING) * grow;
+    const size = (f.radius / GUIDE_RING) * grow;
     f.glow.scale.set(size, 1, size);
     f.glow.material.opacity = fade;
     if (f.ring.visible) {
-      const r = this.radius * (1.2 + 1.4 * t);
+      const r = f.radius * (1.2 + 1.4 * t);
       f.ring.scale.set(r, 1, r);
       f.ring.material.opacity = 0.8 * (1 - t);
     }

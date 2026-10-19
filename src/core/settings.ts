@@ -10,12 +10,17 @@ export type PausePosition = 'side' | 'top';
 export type Difficulty = 'warmup' | 'easy' | 'medium' | 'hard' | 'pro';
 
 export const DIFFICULTIES: readonly Difficulty[] = ['warmup', 'easy', 'medium', 'hard', 'pro'];
+/** Veľkosť cieľa v režime Deker (config.deker.targetSizes). */
+export type DekerSize = 'large' | 'medium' | 'small';
+export const DEKER_SIZES: readonly DekerSize[] = ['large', 'medium', 'small'];
 
 export interface Settings {
   dwellTime: number;
   pauseSide: PauseSide;
   pausePosition: PausePosition;
   difficulty: Difficulty;
+  /** Deker: veľkosť cieľa (menší = ťažší, viac bodov). */
+  dekerSize: DekerSize;
   floorObstacles: boolean;
   /** Hlava hore: spoluhráč nad horizontom a zatmavenie podlahy. */
   headUp: boolean;
@@ -59,6 +64,7 @@ export function defaultSettings(cfg: Config): Settings {
     pauseSide: 'right',
     pausePosition: 'side',
     difficulty: 'easy',
+    dekerSize: 'medium',
     floorObstacles: true,
     headUp: true,
     countdown: cfg.countdown.default,
@@ -88,6 +94,9 @@ export function sanitizeSettings(raw: unknown, cfg: Config): Settings {
   if (r.pausePosition === 'side' || r.pausePosition === 'top') s.pausePosition = r.pausePosition;
   if (typeof r.difficulty === 'string' && (DIFFICULTIES as readonly string[]).includes(r.difficulty)) {
     s.difficulty = r.difficulty as Difficulty;
+  }
+  if (typeof r.dekerSize === 'string' && (DEKER_SIZES as readonly string[]).includes(r.dekerSize)) {
+    s.dekerSize = r.dekerSize as DekerSize;
   }
   if (typeof r.floorObstacles === 'boolean') s.floorObstacles = r.floorObstacles;
   if (typeof r.headUp === 'boolean') s.headUp = r.headUp;
@@ -168,4 +177,9 @@ export function cycleFrameRate(current: number, cfg: Config): number {
 
 export function nextDifficulty(current: Difficulty): Difficulty {
   return DIFFICULTIES[(DIFFICULTIES.indexOf(current) + 1) % DIFFICULTIES.length]!;
+}
+
+/** Ďalšia veľkosť cieľa v cykle veľký → stredný → malý → veľký. */
+export function nextDekerSize(current: DekerSize): DekerSize {
+  return DEKER_SIZES[(DEKER_SIZES.indexOf(current) + 1) % DEKER_SIZES.length]!;
 }

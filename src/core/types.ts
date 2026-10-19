@@ -84,6 +84,7 @@ export type ButtonId =
   | 'newGame'
   | 'set.dwell'
   | 'set.difficulty'
+  | 'set.dekerSize'
   | 'set.floor'
   | 'set.headUp'
   | 'set.pausePos'

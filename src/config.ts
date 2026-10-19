@@ -289,9 +289,16 @@ export const CONFIG = {
      */
     edgeMargin: 0.12,
     minJump: 0.4,
-    padRadius: 0.1,
-    /** Zásah: stred puku najviac takto ďaleko od stredu svetla. */
-    hitRadius: 0.13,
+    /**
+     * Veľkosť cieľa (nastavenie „Cieľ Deker“): polomer svetla (m) a násobok bodov (menší cieľ = viac bodov).
+     * Zásah: stred puku najviac radius + hitTolerance od stredu svetla.
+     */
+    targetSizes: {
+      large: { radius: 0.1, score: 1 },
+      medium: { radius: 0.07, score: 1.5 },
+      small: { radius: 0.05, score: 2 },
+    },
+    hitTolerance: 0.03,
     /** Body za zásah (krát combo násobiteľ); okamžitý zásah dá navyše speedBonus × 100 %, na konci limitu nič. */
     scorePerHit: 100,
     speedBonus: 1,

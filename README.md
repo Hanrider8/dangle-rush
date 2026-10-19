@@ -8,6 +8,8 @@ V hlavnom menu sú dve hry:
 - **Deker**: podľa tréningovej podložky. Pred tebou leží nehybná podložka (1,6 × 1,0 m). Na náhodnom mieste sa rozsvieti svetlo, vždy aspoň 40 cm od predošlého svetla aj od puku, a krúžok okolo neho sa sťahuje, kým nevyprší čas. Keď cezeň prevedieš puk, zazelená sa, dostaneš body a rozsvieti sa ďalšie svetlo.
   - Rýchlejší zásah dá až 2× viac bodov a séria zásahov zvyšuje násobiteľ.
   - Kolo trvá 60 s. Čas na jedno svetlo závisí od obtiažnosti: od 4 s na rozcvičke po 1,2 s na pro.
+  - Veľkosť cieľa (v nastaveniach „Cieľ v Dekeri“): veľký (priemer 20 cm), stredný (14 cm, predvolený) alebo malý (10 cm). Menší cieľ dá 1,5× alebo 2× viac bodov.
+  - S `?debug=1` (alebo Debug zap v nastaveniach) je v Dekeri aj počas hry vidieť zelenú žiaru tam, kde hra vidí puk. Debug panel ukazuje, koľko cm je puk od svetla. Takto sa dá skontrolovať sledovanie ďaleko od tela.
   - Rekord sa vedie pre každú obtiažnosť zvlášť.
   - Body počíta len so sledovaním puku kamerou. Bez kamery sa svetlá menia v rytme, bez bodov.
   - Z konca hry aj z pauzy sa do hlavného menu dostaneš tlačidlom **Menu**.
