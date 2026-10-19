@@ -45,8 +45,9 @@ async function main(): Promise<void> {
     installHooks(app, device);
   }
 
-  // `?cam=1`: test sledovania puku kamerou headsetu (samostatný chunk, bežnú hru neovplyvní).
-  if (params.get('cam') === '1') {
+  // Sledovanie puku kamerou headsetu je predvolene zapnuté (samostatný chunk; kamera sa spustí až po
+  // „Povoliť kameru“). `?cam=0` ho vypne.
+  if (params.get('cam') !== '0') {
     const { installCameraTest } = await import('./camera/cameraTest');
     let simStream: (() => MediaStream) | undefined;
     // Len vývoj: `?camsim=1` nahradí kameru virtuálnou kamerou v emulátore.

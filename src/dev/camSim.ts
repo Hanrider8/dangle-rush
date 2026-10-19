@@ -1,5 +1,5 @@
 /**
- * Len pre vývoj: virtuálna kamera headsetu pre test `?cam=1&camsim=1` v emulátore IWER.
+ * Len pre vývoj: virtuálna kamera headsetu pre `?camsim=1` v emulátore IWER.
  *
  * Vykreslí podlahu zo svetlého dreva a zelený biscuit (s `&camball=orange` lososovo-oranžovú loptičku)
  * z pohľadu kamery pripevnenej k emulovanej hlave so známymi parametrami (SIM_CAMERA). Póza hlavy sa berie spred SIM_CAMERA.latencyMs,

@@ -1,5 +1,6 @@
 /**
- * Test sledovania puku kamerou headsetu (`?cam=1`). Načíta sa dynamicky len v tomto režime.
+ * Sledovanie puku kamerou headsetu (predvolene zapnuté, `?cam=0` ho vypne). Načíta sa dynamicky
+ * a kamera sa spustí až po kliknutí na „Povoliť kameru“.
  *
  * Úvodná stránka: výber cieľa, rozlíšenia a kamery, povolenie, náhľad a správa pre vývoj.
  * Ťuknutím na puk v náhľade sa naučí jeho farba (pamätá sa pre každý cieľ zvlášť).

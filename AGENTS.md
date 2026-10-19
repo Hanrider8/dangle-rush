@@ -9,7 +9,7 @@ Hokejový drill pre **Meta Quest 3** vo WebXR s passthrough (`immersive-ar` + `l
 Hráč mieša skutočný puk skutočnou hokejkou a prevádza ho cez virtuálne prekážky na zemi. Občas uhne
 obrancovi. Platia tieto obmedzenia:
 
-- Hra pozná **pózu headsetu**. Puk vidí len so sledovaním kamerou (`?cam=1`): vtedy dostáva `PuckSample` a prvky
+- Hra pozná **pózu headsetu**. Puk vidí len so sledovaním kamerou (predvolene na stránke, `?cam=0` vypne; kamera beží až po „Povoliť kameru“): vtedy dostáva `PuckSample` a prvky
   na zemi posudzuje (úspech / minutie). Bez kamery sa prvky len počítajú. Hokejku nevidí nikdy.
 - **Hlava hore** (nastavenie, predvolene zap): ďaleko vpredu sa občas objaví spoluhráč a čaká, kým sa naňho hráč
   pozrie. Kým čaká, obraz stále viac tmavne a bliká. Pohľad naňho vráti všetko do normálu.
@@ -79,7 +79,7 @@ src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/t
   calibration.ts samokalibrácia z nehybného puku (Levenberg–Marquardt: f, stred, natočenie, poloha, oneskorenie)
   poseHistory.ts história pózy hlavy (póza v čase zachytenia snímky), timeSync.ts časové značky kamery → čas
   yuv.ts        zmenšenie snímky I420/NV12 priamo do malého RGBA (Quest dáva I420; canvas trval ~20 ms)
-src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
+src/camera/     sledovanie puku (predvolene, `?cam=0` vypne; dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
 src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení, automatický
@@ -93,7 +93,7 @@ src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), me
 src/ui/         tlačidlá a panely (CanvasTexture), HUD, debug overlay, strings.ts (všetky texty, SK)
 src/audio/      syntetizované zvuky (Web Audio, žiadne súbory)
 src/dev/        LEN DEV (dynamický import, nie je v dist/): IWER emulátor, window.__dr, autopilot demo.ts,
-                camSim.ts (virtuálna kamera pre `?cam=1&camsim=1`)
+                camSim.ts (virtuálna kamera pre `?camsim=1`)
 src/app.ts      slučka: XRFrame → hlava → Game.update → events → render/ui → renderer.render
 ```
 
@@ -145,7 +145,8 @@ Kľúčové invarianty:
   - Zachytený = pohľad do `lookAngleDeg` aspoň `lookTime`. Dá `scorePerSignal` × násobiteľ × `scoreFactor()`
     (neskorý pohľad až `lateScoreFactor`) a combo. Výsledok hry má počet a priemernú reakciu.
   - Priame testy simulácie (`sim.reset` bez 5. parametra) majú hlavu hore vypnutú.
-- **Test kamery (`?cam=1`)** hru nevyhodnocuje a bez parametra sa vôbec nenačíta. Kamera headsetu ide cez
+- **Sledovanie puku kamerou** sa načíta predvolene (`?cam=0` ho vypne), kamera sa spustí až po „Povoliť kameru“
+  na úvodnej stránke; dovtedy hra beží bez puku. Kamera headsetu ide cez
   `getUserMedia` (povolenie „Kamery headsetu“ v Quest Browseri, dá sa udeliť len mimo AR). Puk leží na zemi,
   takže stačí jedna kamera: lúč z pixelu × rovina vo výške stredu puku. Póza hlavy sa berie v čase zachytenia
   (`TimeSync` + oneskorenie z kalibrácie). Kalibrácia sa ukladá do localStorage podľa názvu kamery a rozlíšenia.
@@ -213,7 +214,7 @@ Skriptovanie cez `window.__dr`:
 
 Statické zábery je najlepšie robiť v pauze (`game.autoPause('visibility')`), lebo prekážky stoja.
 
-**Test kamery bez headsetu:** `?cam=1&camsim=1&debug=1` nahradí kameru virtuálnou kamerou (`dev/camSim.ts`, známe
+**Test kamery bez headsetu:** `?camsim=1&debug=1` nahradí kameru virtuálnou kamerou (`dev/camSim.ts`, známe
 parametre v `SIM_CAMERA`), ktorá kreslí zelený biscuit na drevenej podlahe z pohľadu emulovanej hlavy
 (`&camball=orange` lososovú loptičku; v teste vyber „Oranžová loptička“). Naučenie farby: klik na loptičku
 v `#cam-preview` (pozri sa na ňu, napr. `__dr.look(-9, -55)`), výsledok je v `#cam-status` a v správe. Postup:

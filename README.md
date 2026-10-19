@@ -4,7 +4,7 @@ Hokejový drill v mixed reality pre **Meta Quest 3** (WebXR, passthrough). Stoj�
 
 Hra trénuje hlavne **miešanie puku**. Väčšina vĺn sú prekážky na zemi, obrancovia prídu len občas.
 
-- **Prekážky na zemi** ukazujú, kam s pukom. Modrá farba na zemi (ako modrá čiara na ľade) vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (`?cam=1`, pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
+- **Prekážky na zemi** ukazujú, kam s pukom. Modrá farba na zemi (ako modrá čiara na ľade) vždy označuje, kadiaľ má ísť puk. Bez kamery hra puk nevidí a prekážky len počíta (počítadlo „Puk“ v HUD). So sledovaním puku kamerou (pozri nižšie) každý prvok posúdi: keď ním puk prejde, prvok zozelenie, zmizne a zaznie tón (body a combo); minutý prvok zošedne:
   - brána z dvoch oranžových tréningových kužeľov,
   - nízka hokejka na zemi z jednej strany,
   - slalom: 3–5 kužeľov v rade, puk ich obchádza striedavo zľava a sprava,
@@ -140,8 +140,9 @@ Build používa relatívne cesty (`base: './'`), preto funguje v ľubovoľnom po
 
 ## Sledovanie puku kamerou
 
-Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku a hra podľa toho posudzuje prekážky na zemi:
-**https://hanrider8.github.io/dangle-rush/?cam=1**
+Kamera headsetu sleduje zelený biscuit alebo oranžovú loptičku a hra podľa toho posudzuje prekážky na zemi.
+Je to priamo na **https://hanrider8.github.io/dangle-rush/**, bez parametra (`?cam=0` sledovanie vypne). Kým
+nepovolíš kameru, hra beží bez nej.
 
 1. Na úvodnej stránke vyber, čo sledovať (najlepšie **zelený biscuit**: na svetlom dreve je zelená výrazná, oranžová
    má podobný odtieň ako drevo), a klikni na **Povoliť kameru**. Povolenie „Kamery headsetu“ sa dá dať len tu, nie v AR.
@@ -198,7 +199,7 @@ src/
 │                  rozloženie tlačidiel, spawn a spravodlivosť, swept kolízie, skóre,
 │                  obtiažnosť, nastavenia; deterministická, s fixným krokom 1/120 s
 ├── tracking/      sledovanie puku kamerou: hľadanie farebného puku, model kamery, samokalibrácia
-├── camera/        test kamery `?cam=1` (getUserMedia, workery, krúžok a panel v AR, správa)
+├── camera/        sledovanie puku kamerou (getUserMedia, workery, krúžok a panel v AR, správa)
 ├── xr/            session (immersive-ar + local-floor), póza hlavy, strata trackingu,
 │                  ignorovanie vstupov z ovládačov a rúk
 ├── render/        scéna, plocha pre puk, meshe prekážok, kurzor pohľadu, vinieta

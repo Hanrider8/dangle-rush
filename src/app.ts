@@ -53,7 +53,7 @@ export class App {
   /** Len pre vývoj: záznam udalostí pre skriptované testy. */
   devLog: string[] | null = null;
   /**
-   * Rozšírenia (napr. test kamery `?cam=1`): volajú sa v každom XR snímku po hernej logike a pred
+   * Rozšírenia (napr. sledovanie puku kamerou): volajú sa v každom XR snímku po hernej logike a pred
    * renderom, s časom snímku (ms) a dt (s). Póza hlavy z tohto snímku je v `head`.
    */
   readonly frameHooks: ((time: number, dt: number) => void)[] = [];

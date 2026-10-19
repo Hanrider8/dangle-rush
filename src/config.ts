@@ -291,7 +291,7 @@ export const CONFIG = {
   },
 
   /**
-   * Test sledovania puku kamerou headsetu (`?cam=1`). Hra ho zatiaľ nevyhodnocuje, test len ukáže,
+   * Sledovanie puku kamerou headsetu (predvolene zapnuté, `?cam=0` vypne). Hra ho zatiaľ nevyhodnocuje, test len ukáže,
    * čo kamera vidí, kde našla farebný puk a kam ho premietla na podlahu.
    * Pixely sú v rozlíšení kamery (napr. 1280 × 960), časy v milisekundách.
    */

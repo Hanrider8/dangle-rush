@@ -1,4 +1,4 @@
-/** Správy medzi hlavným vláknom a workermi testu kamery (`?cam=1`). */
+/** Správy medzi hlavným vláknom a workermi sledovania puku kamerou. */
 import type { CalibConfig, CalibResult } from '../tracking/calibration';
 import type { CamParams } from '../tracking/cameraModel';
 import type { LearnOptions, LearnResult } from '../tracking/colorLearn';
