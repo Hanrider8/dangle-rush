@@ -281,8 +281,12 @@ export const CONFIG = {
   render: {
     antialias: true,
     foveation: 1,
-    /** Obnovovacia frekvencia (nastavenie „Snímky“): predvolená a možnosti; použije sa najbližšia podporovaná. */
-    targetFrameRate: 120,
+    /**
+     * Obnovovacia frekvencia (nastavenie „Snímky“): predvolená a možnosti; použije sa najbližšia podporovaná.
+     * Ak ju hra nestíha, automaticky sa zníži o stupeň (xr/frameRate.ts). Stabilných 90 Hz je príjemnejších
+     * ako 120 Hz, ktoré trhá.
+     */
+    targetFrameRate: 90,
     frameRates: [72, 90, 120],
   },
 
@@ -376,8 +380,12 @@ export const CONFIG = {
       /** Rozsah oneskorenia kamery (ms). */
       maxLatencyMs: 300,
     },
-    /** Krúžok na podlahe: po freshMs zožltne, po hideMs zmizne. */
-    ring: { freshMs: 200, hideMs: 1000 },
+    /**
+     * Žiara okolo puku: po freshMs zožltne, po hideMs zmizne. Počas hrania je predvolene vypnutá: kamera
+     * vidí puk s oneskorením (~44 ms, 30 fps), takže žiara sa ťahá za pohybujúcim sa pukom a puk pôsobí
+     * rozmazane. Pred hrou, v pauze a pri kalibrácii puku je vidieť.
+     */
+    ring: { freshMs: 200, hideMs: 1000, showWhilePlaying: false },
   },
 
   audio: { volume: 0.6 },

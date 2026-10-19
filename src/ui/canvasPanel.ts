@@ -4,6 +4,7 @@
  */
 import {
   CanvasTexture,
+  LinearFilter,
   LinearMipmapLinearFilter,
   Matrix4,
   Mesh,
@@ -22,6 +23,19 @@ export const UNIT_PLANE = new PlaneGeometry(1, 1);
 
 const PX_PER_DEG = 40;
 const MAX_PX = 1024;
+
+export interface PanelOptions {
+  /** Rozlíšenie canvasu na stupeň zorného poľa. */
+  pxPerDeg?: number;
+  /** Mipmapy (ostrejšie pri zmenšení, ale každé prekreslenie ich generuje znova). */
+  mipmaps?: boolean;
+}
+
+/**
+ * Pre panely, ktoré sa prekresľujú počas hry (HUD, debug): rozlíšenie blízke displeju Questu 3
+ * (~25 px/°) a bez mipmáp, aby nahratie textúry do GPU bolo čo najlacnejšie.
+ */
+export const DYNAMIC_TEXTURE: PanelOptions = { pxPerDeg: 28, mipmaps: false };
 
 const basis = new Matrix4();
 const u = new Vector3();
@@ -46,9 +60,10 @@ export class CanvasPanel {
   readonly texture: CanvasTexture;
 
   /** Rozlíšenie podľa uhlovej veľkosti (pomer strán sa nemení s vzdialenosťou). */
-  constructor(widthDeg: number, heightDeg: number) {
-    let w = widthDeg * PX_PER_DEG;
-    let h = heightDeg * PX_PER_DEG;
+  constructor(widthDeg: number, heightDeg: number, opts: PanelOptions = {}) {
+    const pxPerDeg = opts.pxPerDeg ?? PX_PER_DEG;
+    let w = widthDeg * pxPerDeg;
+    let h = heightDeg * pxPerDeg;
     const fit = Math.min(1, MAX_PX / Math.max(w, h));
     w = Math.round(w * fit);
     h = Math.round(h * fit);
@@ -58,8 +73,13 @@ export class CanvasPanel {
     this.ctx = this.canvas.getContext('2d')!;
     this.texture = new CanvasTexture(this.canvas);
     this.texture.colorSpace = SRGBColorSpace;
-    this.texture.minFilter = LinearMipmapLinearFilter;
-    this.texture.anisotropy = 4;
+    if (opts.mipmaps === false) {
+      this.texture.generateMipmaps = false;
+      this.texture.minFilter = LinearFilter;
+    } else {
+      this.texture.minFilter = LinearMipmapLinearFilter;
+      this.texture.anisotropy = 4;
+    }
     const material = new MeshBasicMaterial({
       map: this.texture,
       transparent: true,

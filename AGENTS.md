@@ -82,7 +82,8 @@ src/tracking/   čistá logika sledovania puku kamerou (bez DOM, testy v tests/t
 src/camera/     test `?cam=1` (dynamický import, vlastný chunk): getUserMedia + MediaStreamTrackProcessor,
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
-src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení), póza hlavy z XRFrame,
+src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení, automatický
+                ústup o stupeň, keď hra nestíha), póza hlavy z XRFrame,
                 strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania, dráha voliteľná), meshe prekážok (pooly), kurzor, vinieta,
                 feedback.ts (duch posúdeného prvku: zelený úspech + krúžok, sivé minutie), hokejisti z primitív
@@ -104,7 +105,12 @@ Kľúčové invarianty:
   iba seedovaný `Rng`.
 - **Obnovovacia frekvencia:** Quest spúšťa WebXR na 72 Hz. `updateTargetFrameRate` sa volá až počas XR snímkov
   (`FrameRateControl.onFrame`), kým `session.frameRate` nehlási cieľ; volanie hneď po štarte session sa na Queste
-  nemusí nikdy dokončiť. Predvolené je 120 Hz (nastavenie „Snímky“), použije sa najbližšia podporovaná.
+  nemusí nikdy dokončiť. Predvolené je 90 Hz (nastavenie „Snímky“), použije sa najbližšia podporovaná. Keď je
+  v okne 3 s viac ako 5 % snímok neskoro, frekvencia sa zníži o stupeň (najnižšie 72 Hz) do konca session.
+- **Výkon:** voľné pohľady z poolov prekážok nie sú v scéne (`root.add`/`remove` pri bind/recycle), shadery sa
+  skompilujú vopred (`App.precompile`), HUD a debug majú textúru bez mipmáp (`DYNAMIC_TEXTURE`) a HUD sa kvôli
+  skóre a času prekreslí najviac 2× za sekundu. Žiara okolo puku z kamery je počas hrania vypnutá
+  (`camera.ring.showWhilePlaying`), lebo sa s oneskorením ťahá za pukom.
 - **Hlava** sa číta priamo z `XRFrame.getViewerPose`, nie z kamery three.js (tá je o snímok pozadu).
   `renderer.setAnimationLoop` sa musí nastaviť **pred** `setSession`, inak beží slučka dvakrát za snímok.
 - **Bez alokácií v hernej slučke:** pooly, predalokované vektory a CanvasTexture sa prekresľuje len pri zmene.

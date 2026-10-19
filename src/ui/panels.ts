@@ -127,8 +127,8 @@ export class UiManager {
     this.updateRecenter(game, headWorld);
   }
 
-  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number): void {
-    this.debug.update(dt, game, drawCalls, ignoredInputs, xrHz);
+  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string): void {
+    this.debug.update(dt, game, drawCalls, ignoredInputs, xrHz, hzNote);
   }
 
   private applyLayout(game: Game): void {

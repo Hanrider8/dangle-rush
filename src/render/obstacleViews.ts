@@ -1,6 +1,7 @@
 /**
  * Meshe prekážok. Pre každý typ je predalokovaný pool pohľadov, ktoré sa len zapínajú,
  * nastavia podľa prekážky (bind) a posúvajú. Pozícia v z sa interpoluje medzi krokmi simulácie.
+ * Voľné pohľady nie sú v scéne: three.js by inak každý snímok prepočítal matice stoviek skrytých meshov.
  * Prvok vzoru na zemi sa skryje hneď, ako ho simulácia posúdi (namiesto neho je efekt z feedback.ts).
  */
 import { Group, Mesh, type BufferGeometry, type Material } from 'three';
@@ -482,7 +483,6 @@ export class ObstacleViews {
       for (let i = 0; i < POOL_PER_KIND; i++) {
         const view = make[kind]();
         view.group.visible = false;
-        this.root.add(view.group);
         list.push(view);
       }
       this.free.set(kind, list);
@@ -512,6 +512,7 @@ export class ObstacleViews {
         view.bind(o, sim.eyeHeight);
         view.group.scale.setScalar(1);
         view.group.visible = true;
+        this.root.add(view.group);
         slot.view = view;
         slot.id = o.id;
       }
@@ -578,6 +579,26 @@ export class ObstacleViews {
 
   private recycle(view: ObstacleView): void {
     view.group.visible = false;
+    this.root.remove(view.group);
     this.free.get(view.kind)!.push(view);
+  }
+
+  /**
+   * Na predkompiláciu shaderov: dočasne pridá do scény jeden pohľad každého typu, zavolá fn
+   * a znova ich odoberie (pohľady sú skryté, fn ich má zviditeľniť).
+   */
+  withAllKinds(fn: () => void): void {
+    const added: ObstacleView[] = [];
+    for (const list of this.free.values()) {
+      const view = list[list.length - 1];
+      if (!view) continue;
+      this.root.add(view.group);
+      added.push(view);
+    }
+    fn();
+    for (const view of added) {
+      view.group.visible = false;
+      this.root.remove(view.group);
+    }
   }
 }

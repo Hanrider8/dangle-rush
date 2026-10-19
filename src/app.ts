@@ -2,7 +2,7 @@
  * Zapojenie vrstiev: XR session → póza hlavy → hra (core) → udalosti (audio, efekty) → render a UI.
  * V hernej slučke sa nič nealokuje: póza, udalosti aj meshe sú predalokované.
  */
-import type { WebGLRenderer } from 'three';
+import type { Object3D, WebGLRenderer } from 'three';
 import { Sfx } from './audio/sfx';
 import { CONFIG } from './config';
 import type { GameEvent } from './core/events';
@@ -75,6 +75,7 @@ export class App {
     this.rig.scene.add(this.darkening.mesh);
     this.rig.scene.add(this.vignette.mesh);
     this.ui = new UiManager(CONFIG, this.rig.playRoot, this.rig.scene);
+    this.precompile();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.game.autoPause('visibility');
     });
@@ -82,6 +83,25 @@ export class App {
     // Na desktope (emulátor) prepína debug overlay kláves ` alebo F2.
     window.addEventListener('keydown', (e) => {
       if (e.key === '`' || e.key === 'F2') this.game.toggleDebug();
+    });
+  }
+
+  /**
+   * Skompiluje shadery všetkých materiálov vopred (aj skrytých prekážok, efektov a zatmavenia).
+   * Inak by sa hra zasekla pri prvom výskyte každého typu prekážky (kompilácia trvá desiatky ms).
+   */
+  private precompile(): void {
+    const scene = this.rig.scene;
+    this.obstacles.withAllKinds(() => {
+      const hidden: Object3D[] = [];
+      scene.traverse((o) => {
+        if (!o.visible) {
+          o.visible = true;
+          hidden.push(o);
+        }
+      });
+      this.renderer.compile(scene, this.rig.camera);
+      for (const o of hidden) o.visible = false;
     });
   }
 
@@ -135,7 +155,7 @@ export class App {
     this.darkening.update(dt, game, game.headWorld, this.rig.playRoot);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
-    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current);
+    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current, this.frameRate.autoNote());
     this.renderer.render(this.rig.scene, this.rig.camera);
   };
 
@@ -219,8 +239,14 @@ export class App {
   /** Efekt pri prvku na zemi; code = id prekážky × MAX_ELEMENTS + prvok. */
   private spawnFeedback(code: number, kind: 'hit' | 'miss' | 'pass'): void {
     const id = Math.floor(code / MAX_ELEMENTS);
-    const o = this.game.sim.obstacles.find((x) => x.active && x.id === id);
-    if (o) this.feedback.spawn(o, code - id * MAX_ELEMENTS, kind);
+    const list = this.game.sim.obstacles;
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i]!;
+      if (o.active && o.id === id) {
+        this.feedback.spawn(o, code - id * MAX_ELEMENTS, kind);
+        return;
+      }
+    }
   }
 
   private readonly onEnd = (): void => {

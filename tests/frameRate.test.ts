@@ -50,4 +50,53 @@ describe('obnovovacia frekvencia', () => {
     expect(ctl.current).toBe(120);
     expect(ctl.describe()).toContain('beží 120 Hz');
   });
+
+  it('keď hra frekvenciu nestíha, zníži ju o stupeň (120 → 90) a pri stabilných snímkach už nie', () => {
+    const calls: number[] = [];
+    const session = {
+      frameRate: 120,
+      supportedFrameRates: new Float32Array([72, 80, 90, 120]),
+      updateTargetFrameRate(rate: number) {
+        calls.push(rate);
+        (session as unknown as { frameRate: number }).frameRate = rate;
+        return Promise.resolve();
+      },
+    } as unknown as XRSession;
+    const ctl = new FrameRateControl(120);
+    let t = 0;
+    // 5 s stabilne: bez zmeny.
+    for (let i = 0; i < 600; i++) ctl.onFrame(session, (t += 1000 / 120));
+    expect(calls).toEqual([]);
+    // Každý 10. snímok vynechaný (10 % neskoro): ústup na 90 Hz.
+    for (let i = 0; i < 600 && calls.length === 0; i++) ctl.onFrame(session, (t += i % 10 === 9 ? 2000 / 120 : 1000 / 120));
+    expect(calls).toEqual([90]);
+    expect(ctl.cap).toBe(90);
+    expect(ctl.autoNote()).toContain('120');
+    // Na 90 Hz stabilne: ostane, aj keď je v nastaveniach 120.
+    for (let i = 0; i < 900; i++) ctl.onFrame(session, (t += 1000 / 90));
+    expect(calls).toEqual([90]);
+    expect(ctl.current).toBe(90);
+    // Nová session alebo zmena nastavenia strop zruší.
+    ctl.reset(120);
+    expect(ctl.cap).toBe(Infinity);
+  });
+
+  it('dlhé medzery (Quest menu) a jednotlivé záseky frekvenciu neznížia, pod 72 Hz sa nejde', () => {
+    const calls: number[] = [];
+    const session = {
+      frameRate: 72,
+      supportedFrameRates: new Float32Array([60, 72, 90]),
+      updateTargetFrameRate(rate: number) {
+        calls.push(rate);
+        return Promise.resolve();
+      },
+    } as unknown as XRSession;
+    const ctl = new FrameRateControl(72);
+    let t = 0;
+    for (let i = 0; i < 2000; i++) ctl.onFrame(session, (t += i % 200 === 199 ? 900 : i % 100 === 50 ? 40 : 1000 / 72));
+    expect(calls).toEqual([]);
+    // Aj keď 72 Hz nestíha, na 60 Hz automaticky nezíde.
+    for (let i = 0; i < 2000; i++) ctl.onFrame(session, (t += i % 4 === 0 ? 2000 / 72 : 1000 / 72));
+    expect(calls).toEqual([]);
+  });
 });

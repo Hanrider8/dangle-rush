@@ -128,7 +128,8 @@ export class TrackerView {
     const p = tracker.puck;
     const age = nowMs - p.received;
     const ringCfg = this.cfg.camera.ring;
-    this.ring.visible = running && p.valid && age < ringCfg.hideMs;
+    const playing = game.state === 'PLAYING' || game.state === 'COUNTDOWN';
+    this.ring.visible = running && p.valid && age < ringCfg.hideMs && (calibrating || !playing || ringCfg.showWhilePlaying);
     if (this.ring.visible) {
       this.ring.position.set(p.x, 0.004, p.z);
       this.ring.scale.setScalar(tracker.targetRadius * 2 * GLOW_SCALE);

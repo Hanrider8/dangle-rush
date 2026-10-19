@@ -25,7 +25,7 @@ describe('nastavenia', () => {
       floorObstacles: true,
       headUp: true,
       countdown: 2,
-      frameRate: 120,
+      frameRate: 90,
       eyeHeight: null,
       debug: false,
     });

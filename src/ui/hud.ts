@@ -1,16 +1,20 @@
 /**
  * HUD nad vzdialeným koncom dráhy: životy, skóre, combo, čas. Veľkosť je zadaná v uhloch,
  * takže je rovnako čitateľný pri ľubovoľnej vzdialenosti. Prekreslí sa len pri zmene hodnôt.
+ * Skóre s bonusom za čas sa mení 10× za sekundu: kvôli nemu a času sa HUD prekreslí najviac
+ * 2× za sekundu (každé prekreslenie nahráva textúru do GPU). Životy, combo a puk hneď.
  */
 import type { Config } from '../config';
 import type { Game } from '../core/game';
 import { comboMultiplier } from '../core/scoring';
-import { COLORS, CanvasPanel, FONT_FAMILY, roundedRect } from './canvasPanel';
+import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, roundedRect } from './canvasPanel';
 import { STRINGS, formatClock, formatScore } from './strings';
 
 const DEG = Math.PI / 180;
 const WIDTH_DEG = 14;
 const HEIGHT_DEG = 4.6;
+/** Najkratší čas medzi prekresleniami len kvôli skóre a času (ms). */
+const SLOW_REFRESH_MS = 500;
 
 function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, fill: string): void {
   ctx.beginPath();
@@ -24,7 +28,10 @@ function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, f
 }
 
 export class Hud {
-  readonly panel = new CanvasPanel(WIDTH_DEG, HEIGHT_DEG);
+  readonly panel = new CanvasPanel(WIDTH_DEG, HEIGHT_DEG, DYNAMIC_TEXTURE);
+  /** Počet prekreslení (debug, testy v emulátore). */
+  redraws = 0;
+  private lastDraw = -Infinity;
   private lives = -1;
   private score = -1;
   private combo = -1;
@@ -64,19 +71,18 @@ export class Hud {
     const seconds = Math.floor(sim.time);
     const paused = game.state === 'PAUSED';
     const hint = paused ? menuHint : '';
-    if (
+    const fastSame =
       sim.lives === this.lives &&
-      score === this.score &&
       sim.combo === this.combo &&
       sim.floorPassed === this.floor &&
       sim.floorHits === this.floorHits &&
       sim.floorMisses === this.floorMisses &&
-      seconds === this.seconds &&
       paused === this.paused &&
-      hint === this.hint
-    ) {
-      return;
-    }
+      hint === this.hint;
+    const now = performance.now();
+    if (fastSame && ((score === this.score && seconds === this.seconds) || now - this.lastDraw < SLOW_REFRESH_MS)) return;
+    this.lastDraw = now;
+    this.redraws++;
     this.lives = sim.lives;
     this.score = score;
     this.combo = sim.combo;

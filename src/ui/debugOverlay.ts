@@ -5,19 +5,25 @@
  */
 import type { Config } from '../config';
 import type { Game } from '../core/game';
-import { COLORS, CanvasPanel, FONT_FAMILY, roundedRect } from './canvasPanel';
+import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, roundedRect } from './canvasPanel';
 
 const DEG = Math.PI / 180;
 const WIDTH_DEG = 13;
 const HEIGHT_DEG = 6;
 const REFRESH = 0.25;
 
+function activeCount(list: readonly { active: boolean }[]): number {
+  let n = 0;
+  for (let i = 0; i < list.length; i++) if (list[i]!.active) n++;
+  return n;
+}
+
 function num(value: number, decimals: number): string {
   return value.toFixed(decimals).replace('.', ',');
 }
 
 export class DebugOverlay {
-  readonly panel = new CanvasPanel(WIDTH_DEG, HEIGHT_DEG);
+  readonly panel = new CanvasPanel(WIDTH_DEG, HEIGHT_DEG, DYNAMIC_TEXTURE);
   private time = 0;
   private frames = 0;
   private fps = 0;
@@ -38,8 +44,8 @@ export class DebugOverlay {
     this.panel.mesh.position.set(hudX - hudWidth / 2 - 0.15 - w / 2, hudY, -this.cfg.hud.distance);
   }
 
-  /** xrHz = obnovovacia frekvencia, ktorú hlási XR session (0 = nevedno). */
-  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number): void {
+  /** xrHz = obnovovacia frekvencia, ktorú hlási XR session (0 = nevedno), hzNote = automatický ústup. */
+  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string): void {
     const show = game.settings.debug;
     this.panel.mesh.visible = show;
     this.frames++;
@@ -58,11 +64,11 @@ export class DebugOverlay {
     const headUp = sim.headUp;
     const pitch = Math.asin(Math.max(-1, Math.min(1, game.headFwd.y))) / DEG;
     const lines = [
-      `FPS ${Math.round(this.fps)} / ${xrHz ? Math.round(xrHz) : '?'} Hz · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
+      `FPS ${Math.round(this.fps)} / ${xrHz ? Math.round(xrHz) : '?'} Hz${hzNote} · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
       `hlava y ${num(game.head.y, 2)} m · kalibrácia ${num(game.eyeHeight, 2)} m`,
       `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
       `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
-      `úroveň ${num(sim.level, 2)} · ${num(sim.speed, 1)} m/s · prekážky ${sim.obstacles.filter((o) => o.active).length}`,
+      `${sim.difficulty} · ${num(sim.speed, 1)} m/s · vlna ${num(sim.interval, 1)} s · prekážky ${activeCount(sim.obstacles)}`,
       `sklon ${Math.round(pitch)}° · spoluhráč ${headUp.active ? `čaká ${num(headUp.age, 1)} s · eskalácia ${Math.round(headUp.escalation() * 100)} %` : '–'} · zachytení ${headUp.seen}`,
     ];
     this.panel.draw((ctx, w, h) => {

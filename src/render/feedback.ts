@@ -71,7 +71,7 @@ export class FloorFeedback {
 
   /** Efekt pre prvok `elem` prekážky `o` (volá sa pri udalosti floorHit/floorMiss/floorPass). */
   spawn(o: Obstacle, elem: number, kind: FeedbackKind): void {
-    const e = this.effects.find((x) => !x.active) ?? this.effects[this.next++ % POOL]!;
+    const e = this.freeEffect();
     const g = this.r.geometry;
     const c = this.cfg.obstacles;
     const [a, b] = e.ghosts as [Mesh<BufferGeometry, MeshBasicMaterial>, Mesh<BufferGeometry, MeshBasicMaterial>];
@@ -158,6 +158,12 @@ export class FloorFeedback {
       else e.group.position.z += sim.speed * dt;
       this.apply(e);
     }
+  }
+
+  /** Voľný efekt, inak najstarší v poradí. */
+  private freeEffect(): Effect {
+    for (let i = 0; i < this.effects.length; i++) if (!this.effects[i]!.active) return this.effects[i]!;
+    return this.effects[this.next++ % POOL]!;
   }
 
   clear(): void {
