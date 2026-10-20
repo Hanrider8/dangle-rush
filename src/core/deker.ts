@@ -27,6 +27,36 @@ const NO_PUCK: PuckSample = { valid: false, x: 0, z: 0, age: 0 };
 /** Koľko náhodných miest sa skúsi, kým sa nájde dosť vzdialené (potom rohy, nakoniec najvzdialenejšie). */
 const MAX_TRIES = 32;
 
+/**
+ * Ladenie sledovania: svetlá v jednej zóne (blízko / ďaleko od hráča). Pri každom svetle sa zapíše, ako
+ * najbližšie sa k jeho stredu dostal puk podľa kamery (len zábery po rozsvietení) a kam bol vtedy posunutý.
+ */
+export class DekerZoneStats {
+  lights = 0;
+  hits = 0;
+  /** Svetlá, pri ktorých kamera puk videla. */
+  seen = 0;
+  /** Súčet najmenších vzdialeností puku od stredu svetla a posunu puku v tej chvíli (len videné, m). */
+  minSum = 0;
+  dxSum = 0;
+  dzSum = 0;
+
+  reset(): void {
+    this.lights = 0;
+    this.hits = 0;
+    this.seen = 0;
+    this.minSum = 0;
+    this.dxSum = 0;
+    this.dzSum = 0;
+  }
+
+  copy(): DekerZoneStats {
+    const c = new DekerZoneStats();
+    Object.assign(c, this);
+    return c;
+  }
+}
+
 /** Stav ako obyčajný objekt (testy pauzy a pokračovania, dev nástroje). */
 export interface DekerSnapshot {
   time: number;
@@ -43,6 +73,8 @@ export interface DekerSnapshot {
   targetAge: number;
   shown: number;
   rngState: number;
+  near: DekerZoneStats;
+  far: DekerZoneStats;
 }
 
 export class DekerSim {
@@ -86,8 +118,15 @@ export class DekerSim {
    */
   lastX = 0;
   lastZ = 0;
+  /** Ladenie sledovania: svetlá blízko a ďaleko (config.deker.farDistance) od hráča. */
+  readonly near = new DekerZoneStats();
+  readonly far = new DekerZoneStats();
 
   private hasLast = false;
+  /** Najbližší puk k svietiacemu svetlu (vzdialenosť a posun). */
+  private minDist = Infinity;
+  private minDx = 0;
+  private minDz = 0;
   private gapLeft = 0;
   private sawPuck = false;
   private readonly rng = new Rng(1);
@@ -133,6 +172,9 @@ export class DekerSim {
     this.hasLast = false;
     this.gapLeft = d.firstDelay;
     this.sawPuck = false;
+    this.minDist = Infinity;
+    this.near.reset();
+    this.far.reset();
     this.rng.state = (seed ^ SEED_SALT) >>> 0;
   }
 
@@ -159,9 +201,19 @@ export class DekerSim {
       this.sawPuck = true;
       // Záber spred rozsvietenia sa neráta (kamera vidí puk s oneskorením puck.age).
       const reaction = this.targetAge - puck.age;
-      if (reaction >= 0 && Math.hypot(puck.x - this.targetX, puck.z - this.targetZ) <= this.hitRadius) {
-        this.onHit(reaction);
-        return;
+      if (reaction >= 0) {
+        const dx = puck.x - this.targetX;
+        const dz = puck.z - this.targetZ;
+        const dist = Math.hypot(dx, dz);
+        if (dist < this.minDist) {
+          this.minDist = dist;
+          this.minDx = dx;
+          this.minDz = dz;
+        }
+        if (dist <= this.hitRadius) {
+          this.onHit(reaction);
+          return;
+        }
       }
     }
     if (this.targetAge >= this.timeout - 1e-9) this.onTimeout();
@@ -183,6 +235,8 @@ export class DekerSim {
       targetAge: this.targetAge,
       shown: this.shown,
       rngState: this.rng.state,
+      near: this.near.copy(),
+      far: this.far.copy(),
     };
   }
 
@@ -228,6 +282,7 @@ export class DekerSim {
     this.targetZ = bestZ;
     this.targetAge = 0;
     this.sawPuck = false;
+    this.minDist = Infinity;
     this.shown++;
     this.events.push('dekerTarget', '', this.shown);
   }
@@ -241,7 +296,7 @@ export class DekerSim {
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
     this.hits++;
     this.reactionSum += reaction;
-    this.endTarget();
+    this.endTarget(true);
     this.events.push('dekerHit', '', this.shown);
   }
 
@@ -253,11 +308,20 @@ export class DekerSim {
     } else {
       this.passes++;
     }
-    this.endTarget();
+    this.endTarget(false);
     this.events.push(missed ? 'dekerMiss' : 'dekerPass', '', this.shown);
   }
 
-  private endTarget(): void {
+  private endTarget(hit: boolean): void {
+    const zone = Math.hypot(this.targetX, this.targetZ) >= this.cfg.deker.farDistance ? this.far : this.near;
+    zone.lights++;
+    if (hit) zone.hits++;
+    if (this.minDist < Infinity) {
+      zone.seen++;
+      zone.minSum += this.minDist;
+      zone.dxSum += this.minDx;
+      zone.dzSum += this.minDz;
+    }
     this.lastX = this.targetX;
     this.lastZ = this.targetZ;
     this.hasLast = true;

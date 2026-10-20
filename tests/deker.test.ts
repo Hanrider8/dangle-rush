@@ -273,6 +273,45 @@ describe('Deker: zásahy a body', () => {
     expect(loadSettings(storage, CONFIG).dekerSize).toBe('medium');
   });
 
+  it('ladenie sledovania: najbližší puk a jeho posun sa zapíšu do zóny blízko alebo ďaleko', () => {
+    const { sim, events } = makeSim(11);
+    // Kamera vidí puk vždy 20 cm bližšie k hráčovi, než je stred svetla: samé minutia.
+    advance(sim, events, 20, (s) => (s.lit ? puckAt(s.targetX, s.targetZ + 0.2) : puckAt(AWAY.x, AWAY.z)));
+    const { near, far } = sim;
+    expect(near.lights).toBeGreaterThan(0);
+    expect(far.lights).toBeGreaterThan(0);
+    expect(near.lights + far.lights).toBe(sim.misses);
+    for (const z of [near, far]) {
+      expect(z.hits).toBe(0);
+      expect(z.seen).toBe(z.lights);
+      expect(z.minSum / z.seen).toBeCloseTo(0.2, 6);
+      expect(z.dzSum / z.seen).toBeCloseTo(0.2, 6);
+      expect(z.dxSum / z.seen).toBeCloseTo(0, 6);
+    }
+
+    // Zóna podľa vodorovnej vzdialenosti svetla od hráča.
+    const b = makeSim(11);
+    const zones: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      untilLit(b.sim, b.events, puckAt(AWAY.x, AWAY.z));
+      const far0 = b.sim.far.lights;
+      const dist = Math.hypot(b.sim.targetX, b.sim.targetZ);
+      advance(b.sim, b.events, 0.3, (s) => follow(s, 0.1));
+      zones.push(b.sim.far.lights > far0 ? 'far' : 'near');
+      expect(zones[i]).toBe(dist >= D.farDistance ? 'far' : 'near');
+    }
+    expect(b.sim.near.hits + b.sim.far.hits).toBe(6);
+    expect(b.sim.near.minSum + b.sim.far.minSum).toBeLessThan(6 * b.sim.hitRadius);
+
+    // Bez kamery sa svetlo zaráta, ale nie ako videné; nová hra štatistiku vynuluje.
+    const c = makeSim(3);
+    advance(c.sim, c.events, 10);
+    expect(c.sim.near.lights + c.sim.far.lights).toBe(c.sim.passes);
+    expect(c.sim.near.seen + c.sim.far.seen).toBe(0);
+    c.sim.reset(3, 'easy', 'large');
+    expect(c.sim.near.lights + c.sim.far.lights).toBe(0);
+  });
+
   it('limit na svetlo závisí od obtiažnosti', () => {
     for (const d of ['warmup', 'easy', 'medium', 'hard', 'pro'] as const) {
       expect(makeSim(1, d).sim.timeout).toBe(D.targetTime[d]);

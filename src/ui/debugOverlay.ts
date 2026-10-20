@@ -2,11 +2,12 @@
  * Prepínateľný debug overlay vedľa HUD: FPS, najdlhšia snímka (trhanie), stav automatu, výška hlavy,
  * uhol pohľadu k najbližšiemu tlačidlu, draw cally, počet ignorovaných vstupov a hlava hore (sklon pohľadu,
  * čakanie spoluhráča a eskalácia). V Dekeri namiesto hlavy hore puk z kamery: poloha, vzdialenosť od svetla
- * a vek záberu (ladenie sledovania). Posledný riadok: záseky (neskoré XR snímky) a čo robil snímok pred nimi.
+ * a vek záberu, namiesto pohľadu na tlačidlá štatistika svetiel blízko a ďaleko od hráča (ladenie sledovania). Posledný riadok: záseky (neskoré XR snímky) a čo robil snímok pred nimi.
  * Obnovuje sa 4× za sekundu.
  */
 import type { Object3D } from 'three';
 import type { Config } from '../config';
+import type { DekerZoneStats } from '../core/deker';
 import type { Game } from '../core/game';
 import { HITCH_EVENT, HITCH_TEXTURE, type HitchProbe } from '../xr/hitches';
 import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, fitText, roundedRect } from './canvasPanel';
@@ -62,6 +63,19 @@ export class DebugOverlay {
     return [head, `posledný ${Math.round(h.lastInterval)} ms ← JS ${num(h.lastJs, 1)} · kamera ${num(h.lastCamera, 1)} ms · ${tags}`];
   }
 
+  /**
+   * Svetlá v zóne (ďaleko = od config.deker.farDistance): zásahy, pri koľkých kamera puk videla, priemer
+   * najmenšej vzdialenosti puku od stredu svetla a priemerný posun puku v tej chvíli (x doprava, z k hráčovi).
+   */
+  private zoneLine(label: string, z: DekerZoneStats): string {
+    if (z.lights === 0) return `${label} –`;
+    const base = `${label} ${z.hits}/${z.lights} · videný ${z.seen}`;
+    if (z.seen === 0) return base;
+    const cm = (v: number) => Math.round((v / z.seen) * 100);
+    const signed = (v: number) => (v > 0 ? `+${v}` : String(v));
+    return `${base} · ⌀ ${cm(z.minSum)} cm · posun x ${signed(cm(z.dxSum))} z ${signed(cm(z.dzSum))} cm`;
+  }
+
   private dekerLine(game: Game): string {
     const d = game.deker;
     const light = d.lit ? `${num(d.targetX, 2)}; ${num(d.targetZ, 2)} · ${num(d.targetAge, 1)}/${num(d.timeout, 1)} s` : '–';
@@ -101,8 +115,12 @@ export class DebugOverlay {
     const lines = [
       `FPS ${Math.round(this.fps)} / ${xrHz ? Math.round(xrHz) : '?'} Hz${hzNote} · max ${Math.round(this.shownMaxMs)} ms · ${game.state}/${game.sub}`,
       `hlava y ${num(game.head.y, 2)} m · kalibrácia ${num(game.eyeHeight, 2)} m`,
-      `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
-      `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
+      game.mode === 'deker'
+        ? this.zoneLine('blízko', game.deker.near)
+        : `pohľad → tlačidlo ${gaze.nearestAngleDeg < 180 ? `${num(gaze.nearestAngleDeg, 1)}°` : '–'}${gaze.focusedId ? ` (${gaze.focusedId} ${Math.round(gaze.progress * 100)} %)` : ''}`,
+      game.mode === 'deker'
+        ? this.zoneLine('ďaleko', game.deker.far)
+        : `draw cally ${drawCalls} · ignorované vstupy ${ignoredInputs}`,
       game.mode === 'deker' ? this.dekerLine(game) : `${sim.difficulty} · ${num(sim.speed, 1)} m/s · vlna ${num(sim.interval, 1)} s · prekážky ${activeCount(sim.obstacles)}`,
       game.mode === 'deker'
         ? this.puckLine(game, pitch)

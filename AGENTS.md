@@ -135,7 +135,9 @@ Kľúčové invarianty:
   - Zásah platí len zo záberu urobeného po rozsvietení (`targetAge − puck.age ≥ 0`) a do polomeru cieľa
     + `hitTolerance`. Veľkosť cieľa je nastavenie `dekerSize` (`config.deker.targetSizes`: polomer a násobok bodov).
   - Ladenie sledovania: s debugom ukazuje `camera/view.ts` žiaru puku aj počas Dekera a debug overlay
-    vzdialenosť puku od svetla a vek záberu.
+    vzdialenosť puku od svetla a vek záberu. `DekerSim.near/far` (`DekerZoneStats`, hranica
+    `config.deker.farDistance`) zbierajú pre svetlá blízko a ďaleko od hráča zásahy, či kamera puk videla,
+    najmenšiu vzdialenosť puku od stredu svetla a posun puku v tej chvíli (riadky „blízko“/„ďaleko“ v debugu).
   - Deker je statický a blízko pri zemi, takže každý neskorý XR snímok je vidieť ako krátke odskočenie
     obrazu (Quest ukáže predošlý snímok len pootočený). Záseky meria `xr/hitches.ts` (debug overlay).
     Worker kamery v AR neposiela náhľady (len pri kalibrácii puku, `source.setPreviews`).

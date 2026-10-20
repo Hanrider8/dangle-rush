@@ -299,6 +299,8 @@ export const CONFIG = {
       small: { radius: 0.05, score: 2 },
     },
     hitTolerance: 0.03,
+    /** Ladenie sledovania: svetlá ďalej od hráča (vodorovne, m) sa v štatistike rátajú ako „ďaleko“. */
+    farDistance: 0.8,
     /** Body za zásah (krát combo násobiteľ); okamžitý zásah dá navyše speedBonus × 100 %, na konci limitu nič. */
     scorePerHit: 100,
     speedBonus: 1,
