@@ -12,6 +12,7 @@ import { CONFIG } from '../config';
 import type { KeyValueStorage } from '../core/settings';
 import type { ColorProfile } from '../tracking/detector';
 import { FrameStats } from './frameStats';
+import type { FromFrameWorker } from './protocol';
 import { buildReport } from './report';
 import { CameraSource } from './source';
 import { PuckTracker, type TargetKind } from './tracker';
@@ -141,6 +142,13 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   configure();
 
   source.onMessage = (msg) => {
+    // Čas spracovania správy na hlavnom vlákne (meranie zásekov v debug overlay).
+    const t0 = performance.now();
+    handleMessage(msg);
+    app.hitches.addCamera(performance.now() - t0);
+  };
+
+  const handleMessage = (msg: FromFrameWorker): void => {
     switch (msg.type) {
       case 'det':
         tracker.onDetection(msg, app.game.playFrame, inXr);
@@ -324,6 +332,8 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
     const calibrating = app.game.sub === 'puck';
     if (calibrating && !wasCalibrating) tracker.beginCalibration();
     wasCalibrating = calibrating;
+    // V AR treba náhľad kamery len pri kalibrácii puku (panel kamery).
+    source.setPreviews(calibrating);
     if (lastXrTime >= 0) {
       xr.targetHz = app.session?.frameRate ?? 90;
       const target = 1000 / xr.targetHz;
@@ -354,6 +364,7 @@ export function installCameraTest(app: App, storage: KeyValueStorage, options: C
   window.setInterval(() => {
     if (!app.session && inXr) {
       inXr = false;
+      source.setPreviews(true);
       source.note(`AR session ${xrSessions} skončila`);
       // Po návrate z AR je správa hneď otvorená na skopírovanie alebo odfotenie.
       details.open = true;

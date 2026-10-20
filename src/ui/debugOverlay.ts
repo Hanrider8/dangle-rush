@@ -2,16 +2,20 @@
  * Prepínateľný debug overlay vedľa HUD: FPS, najdlhšia snímka (trhanie), stav automatu, výška hlavy,
  * uhol pohľadu k najbližšiemu tlačidlu, draw cally, počet ignorovaných vstupov a hlava hore (sklon pohľadu,
  * čakanie spoluhráča a eskalácia). V Dekeri namiesto hlavy hore puk z kamery: poloha, vzdialenosť od svetla
- * a vek záberu (ladenie sledovania). Obnovuje sa 4× za sekundu.
+ * a vek záberu (ladenie sledovania). Posledný riadok: záseky (neskoré XR snímky) a čo robil snímok pred nimi.
+ * Obnovuje sa 4× za sekundu.
  */
 import type { Object3D } from 'three';
 import type { Config } from '../config';
 import type { Game } from '../core/game';
-import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, FONT_FAMILY, roundedRect } from './canvasPanel';
+import { HITCH_EVENT, HITCH_TEXTURE, type HitchProbe } from '../xr/hitches';
+import { COLORS, CanvasPanel, DYNAMIC_TEXTURE, fitText, roundedRect } from './canvasPanel';
 
 const DEG = Math.PI / 180;
 const WIDTH_DEG = 13;
-const HEIGHT_DEG = 6;
+const HEIGHT_DEG = 8;
+/** Riadok textu v stupňoch (rovnaké písmo ako pri pôvodnom 6° paneli so 6 riadkami). */
+const LINE_DEG = 0.89;
 const REFRESH = 0.25;
 
 function activeCount(list: readonly { active: boolean }[]): number {
@@ -47,6 +51,17 @@ export class DebugOverlay {
     m.position.set(hud.position.x - hud.scale.x / 2 - gap - w / 2, hud.position.y, hud.position.z);
   }
 
+  /**
+   * Záseky za 10 s (spolu) a najdlhší JS v slučke; posledný zásek: interval snímok, JS a kamera v snímku
+   * pred ním a čo sa v ňom dialo.
+   */
+  private hitchLines(h: HitchProbe): [string, string] {
+    const head = `záseky ${h.recent(performance.now())}/10 s (spolu ${h.total}) · JS max ${num(h.maxJs, 1)} ms`;
+    if (h.total === 0) return [head, 'posledný zásek –'];
+    const tags = [h.lastFlags & HITCH_TEXTURE ? 'textúra' : '', h.lastFlags & HITCH_EVENT ? 'udalosť' : ''].filter(Boolean).join(' + ') || 'nič';
+    return [head, `posledný ${Math.round(h.lastInterval)} ms ← JS ${num(h.lastJs, 1)} · kamera ${num(h.lastCamera, 1)} ms · ${tags}`];
+  }
+
   private dekerLine(game: Game): string {
     const d = game.deker;
     const light = d.lit ? `${num(d.targetX, 2)}; ${num(d.targetZ, 2)} · ${num(d.targetAge, 1)}/${num(d.timeout, 1)} s` : '–';
@@ -65,7 +80,7 @@ export class DebugOverlay {
   }
 
   /** xrHz = obnovovacia frekvencia, ktorú hlási XR session (0 = nevedno), hzNote = automatický ústup. */
-  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string): void {
+  update(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string, hitches: HitchProbe): void {
     const show = game.settings.debug;
     this.panel.mesh.visible = show;
     this.frames++;
@@ -92,14 +107,16 @@ export class DebugOverlay {
       game.mode === 'deker'
         ? this.puckLine(game, pitch)
         : `sklon ${Math.round(pitch)}° · spoluhráč ${headUp.active ? `čaká ${num(headUp.age, 1)} s · eskalácia ${Math.round(headUp.escalation() * 100)} %` : '–'} · zachytení ${headUp.seen}`,
+      ...this.hitchLines(hitches),
     ];
     this.panel.draw((ctx, w, h) => {
       roundedRect(ctx, 4, 4, w - 8, h - 8, h * 0.08, 'rgba(0, 0, 0, 0.72)', 'rgba(255, 179, 71, 0.8)', 3);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.font = `600 ${Math.round(h * 0.1)}px ${FONT_FAMILY}`;
-      ctx.fillStyle = COLORS.text;
-      lines.forEach((line, i) => ctx.fillText(line, w * 0.04, h * (0.13 + i * 0.148)));
+      // Dlhý riadok sa zmenší, aby sa zmestil do panelu.
+      const line = (h * LINE_DEG) / HEIGHT_DEG;
+      const size = Math.round(h * (0.6 / HEIGHT_DEG));
+      lines.forEach((text, i) => fitText(ctx, text, w * 0.04, h * 0.09 + i * line, w * 0.92, size, 600, COLORS.text));
     });
   }
 }

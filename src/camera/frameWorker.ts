@@ -24,6 +24,7 @@ let preview: OffscreenCanvas | null = null;
 let pctx: OffscreenCanvasRenderingContext2D | null = null;
 let image: ImageData | null = null;
 let lastPreview = -Infinity;
+let previewsEnabled = true;
 const yuv = new YuvDownscaler();
 let copyBuffer: Uint8Array | null = null;
 /** Priama cesta YUV zlyhala: ďalej len canvas. */
@@ -129,7 +130,7 @@ function analyze(
     procMs: 0,
     method,
   };
-  if (t0 - lastPreview >= config.previewIntervalMs) {
+  if (previewsEnabled && t0 - lastPreview >= config.previewIntervalMs) {
     lastPreview = t0;
     sendPreview(image, blob);
   }
@@ -237,6 +238,9 @@ scope.onmessage = (e) => {
       break;
     case 'learn':
       learnAt = { x: msg.x, y: msg.y };
+      break;
+    case 'previews':
+      previewsEnabled = msg.enabled;
       break;
     case 'stop':
       generation++;

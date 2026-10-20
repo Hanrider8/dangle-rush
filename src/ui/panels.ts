@@ -9,6 +9,7 @@ import type { GazeButton } from '../core/gaze';
 import type { Settings } from '../core/settings';
 import type { ButtonId, GameMode, HeadSample, Rect3, TextId } from '../core/types';
 import { GazeCursor } from '../render/cursor';
+import type { HitchProbe } from '../xr/hitches';
 import { Button3D } from './buttons';
 import { COLORS, CORNER, CanvasPanel, FONT_FAMILY, accentTick, fitText, placeOnRect, roundedRect } from './canvasPanel';
 import { DebugOverlay } from './debugOverlay';
@@ -136,8 +137,8 @@ export class UiManager {
     this.updateRecenter(game, headWorld);
   }
 
-  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string): void {
-    this.debug.update(dt, game, drawCalls, ignoredInputs, xrHz, hzNote);
+  updateDebug(dt: number, game: Game, drawCalls: number, ignoredInputs: number, xrHz: number, hzNote: string, hitches: HitchProbe): void {
+    this.debug.update(dt, game, drawCalls, ignoredInputs, xrHz, hzNote, hitches);
   }
 
   private applyLayout(game: Game): void {

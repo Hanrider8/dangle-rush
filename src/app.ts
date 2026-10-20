@@ -19,8 +19,10 @@ import { ObstacleViews } from './render/obstacleViews';
 import { PlayAreaView } from './render/playArea';
 import { createRenderer } from './render/renderer';
 import { applyEnvironment, applyPlayFrame, createScene, type SceneRig } from './render/scene';
+import { canvasStats } from './ui/canvasPanel';
 import { UiManager } from './ui/panels';
 import { FrameRateControl } from './xr/frameRate';
+import { HITCH_EVENT, HITCH_TEXTURE, HitchProbe } from './xr/hitches';
 import { readHeadPose } from './xr/headPose';
 import { InputGuard } from './xr/inputGuard';
 import { startArSession } from './xr/session';
@@ -49,6 +51,8 @@ export class App {
   readonly inputGuard = new InputGuard();
   /** Obnovovacia frekvencia XR podľa nastavení (žiada sa počas snímkov). */
   readonly frameRate: FrameRateControl;
+  /** Záseky (neskoré XR snímky) a čo ich mohlo spôsobiť (debug overlay). */
+  readonly hitches = new HitchProbe();
   session: XRSession | null = null;
   onSessionEnd: (() => void) | null = null;
   /** Len pre vývoj: simulácia straty trackingu (IWER ju nevie emulovať). */
@@ -143,8 +147,11 @@ export class App {
   private readonly loop = (time: number, frame?: XRFrame): void => {
     // Volania okenného rAF bez XR snímku (pred session a po nej) nič nerobia.
     if (!frame || !this.session) return;
+    const t0 = performance.now();
     const dt = this.lastTime < 0 ? 0 : (time - this.lastTime) / 1000;
     this.lastTime = time;
+    const draws = canvasStats.draws;
+    this.hitches.beginFrame(t0, dt * 1000, 1000 / (this.session.frameRate || 90));
 
     if (this.frameRate.preferred !== this.game.settings.frameRate) this.frameRate.reset(this.game.settings.frameRate);
     this.frameRate.onFrame(this.session, time);
@@ -162,8 +169,10 @@ export class App {
     this.darkening.update(dt, game, game.headWorld, this.rig.playRoot);
     this.vignette.update(dt, game.headWorld);
     this.ui.update(game, game.headWorld);
-    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current, this.frameRate.autoNote());
+    this.ui.updateDebug(dt, game, this.renderer.info.render.calls, this.inputGuard.ignoredCount, this.frameRate.current, this.frameRate.autoNote(), this.hitches);
+    if (canvasStats.draws !== draws) this.hitches.mark(HITCH_TEXTURE);
     this.renderer.render(this.rig.scene, this.rig.camera);
+    this.hitches.endFrame(t0, performance.now() - t0);
   };
 
   /** Logika jedného snímku bez renderu (používa ho aj dev nástroj na posun času). */
@@ -180,6 +189,7 @@ export class App {
 
   private readonly onEvent = (e: GameEvent): void => {
     if (this.devLog && e.type !== 'dwellTick') this.devLog.push(`${e.type} ${e.id} ${e.n}`);
+    if (e.type !== 'dwellTick') this.hitches.mark(HITCH_EVENT);
     const sfx = this.sfx;
     switch (e.type) {
       case 'dwellTick':

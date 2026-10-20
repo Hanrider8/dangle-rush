@@ -58,6 +58,9 @@ export function placeOnRect(obj: Object3D, r: Rect3, towardViewer = 0, scale = t
   if (scale) obj.scale.set(r.halfW * 2, r.halfH * 2, 1);
 }
 
+/** Počet prekreslení všetkých panelov (každé = nahratie textúry do GPU); meranie zásekov. */
+export const canvasStats = { draws: 0 };
+
 export class CanvasPanel {
   readonly mesh: Mesh<PlaneGeometry, MeshBasicMaterial>;
   readonly canvas: HTMLCanvasElement;
@@ -107,6 +110,7 @@ export class CanvasPanel {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     fn(this.ctx, this.canvas.width, this.canvas.height);
     this.texture.needsUpdate = true;
+    canvasStats.draws++;
   }
 }
 

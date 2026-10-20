@@ -32,6 +32,7 @@ export class CameraSource {
   /** Záznam udalostí pre správu (štart, chyby, mute/ended…). */
   readonly log: string[] = [];
   onMessage: ((msg: FromFrameWorker) => void) | null = null;
+  private previews = true;
   private video: HTMLVideoElement | null = null;
   private grabTimer = 0;
   private grabBusy = false;
@@ -58,6 +59,13 @@ export class CameraSource {
   configure(cfg: FrameWorkerConfig): void {
     this.procWidth = cfg.procWidth;
     this.post(cfg);
+  }
+
+  /** Zapne alebo vypne náhľady z workera (pošle sa len pri zmene). */
+  setPreviews(enabled: boolean): void {
+    if (enabled === this.previews) return;
+    this.previews = enabled;
+    this.post({ type: 'previews', enabled });
   }
 
   /** Naučí farbu puku z najbližšej snímky; (x, y) je bod ťuknutia v náhľade (0–1). Výsledok príde ako 'learned'. */

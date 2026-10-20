@@ -21,6 +21,8 @@ export type ToFrameWorker =
   | { type: 'bitmap'; bitmap: ImageBitmap; arrival: number; srcWidth: number; srcHeight: number }
   /** Naučiť farbu puku z najbližšej snímky; bod ťuknutia v náhľade (0–1). */
   | { type: 'learn'; x: number; y: number }
+  /** Posielať náhľad (v AR len pri kalibrácii puku: inak zbytočná práca workera a hlavného vlákna). */
+  | { type: 'previews'; enabled: boolean }
   | { type: 'stop' };
 
 /** Výsledok jednej snímky. Pixely sú v rozlíšení kamery. */

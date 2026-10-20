@@ -89,7 +89,8 @@ src/camera/     sledovanie puku (predvolene, `?cam=0` vypne; dynamický import, 
                 frameWorker (hľadanie puku), calibWorker, tracker (premietnutie, kalibrácia), view (krúžok,
                 záber, panel), report (správa pre vývoj), cameraTest (úvodná stránka + App.frameHooks)
 src/xr/         session (immersive-ar, foveation), frameRate.ts (72/90/120 Hz podľa nastavení, automatický
-                ústup o stupeň, keď hra nestíha), póza hlavy z XRFrame,
+                ústup o stupeň, keď hra nestíha), hitches.ts (záseky: neskoré XR snímky a čo robil snímok
+                pred nimi, riadky v debug overlay), póza hlavy z XRFrame,
                 strata trackingu, ignorovanie vstupov
 src/render/     scéna, plocha pre puk (len mimo hrania), jemné okraje dráhy (stále, v Dekeri nie), meshe prekážok (pooly), kurzor, vinieta,
                 deker.ts (podložka Dekera, svetlá, krúžok odpočtu, záblesky; takmer priehľadná kvôli skutočnému puku),
@@ -135,6 +136,9 @@ Kľúčové invarianty:
     + `hitTolerance`. Veľkosť cieľa je nastavenie `dekerSize` (`config.deker.targetSizes`: polomer a násobok bodov).
   - Ladenie sledovania: s debugom ukazuje `camera/view.ts` žiaru puku aj počas Dekera a debug overlay
     vzdialenosť puku od svetla a vek záberu.
+  - Deker je statický a blízko pri zemi, takže každý neskorý XR snímok je vidieť ako krátke odskočenie
+    obrazu (Quest ukáže predošlý snímok len pootočený). Záseky meria `xr/hitches.ts` (debug overlay).
+    Worker kamery v AR neposiela náhľady (len pri kalibrácii puku, `source.setPreviews`).
   - V Dekeri sa `sim` (DangleRush) resetuje bez prekážok aj bez hlavy hore.
   - Rekordy sú v `dangleRush.bestDeker.v1`.
   - HUD je bližšie pri podložke (`config.deker.hud`).
