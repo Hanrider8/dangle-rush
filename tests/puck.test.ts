@@ -103,6 +103,34 @@ describe('posúdenie prvkov na zemi pukom', () => {
     expect(judgedAt - BALL_Z).toBeLessThan(sim.speed * age + sim.speed * DT + 1e-9);
   });
 
+  it('falošný puk ďaleko vpredu (pohľad hore) neposúdi prekážky, ktoré ešte len idú', () => {
+    const { sim, events } = makeSim();
+    // Prekážka 3,5 m pred hráčom; kamera „vidí“ puk 4 m vpredu (napr. oranžová vec v izbe).
+    const gate = place(sim, -3.5, (o) => makeConeGate(o, 0, CONFIG));
+    const evs = stepFor(sim, events, 0.2, puckAt(0, -4));
+    expect(gate.elemResult[0]).not.toBe(ELEM_HIT);
+    expect(gate.elemResult[0]).not.toBe(ELEM_MISS);
+    expect(evs.some((e) => e.type === 'floorHit' || e.type === 'floorMiss')).toBe(false);
+    expect(sim.score).toBeLessThan(CONFIG.puck.scorePerHit);
+    // Keď kamera zase vidí puk na ploche, prvok sa posúdi normálne pri čiare puku.
+    stepFor(sim, events, 2, puckAt(0));
+    expect(gate.elemResult[0]).toBe(ELEM_HIT);
+  });
+
+  it('puk mimo plochy (aj do strany) sa nepoužije, s rezervou zoneMargin áno', () => {
+    const a = CONFIG.playArea;
+    const edge = a.width / 2 + CONFIG.puck.zoneMargin;
+    for (const [x, judged] of [
+      [edge - 0.01, true],
+      [edge + 0.01, false],
+    ] as const) {
+      const { sim, events } = makeSim();
+      const gate = place(sim, -3, (o) => makeConeGate(o, 0, CONFIG));
+      stepFor(sim, events, 2, puckAt(x));
+      expect(gate.elemResult[0]).toBe(judged ? ELEM_MISS : ELEM_UNKNOWN);
+    }
+  });
+
   it('starý odhad puku sa nepoužije', () => {
     const { sim, events } = makeSim();
     const gate = place(sim, -3, (o) => makeConeGate(o, 0, CONFIG));

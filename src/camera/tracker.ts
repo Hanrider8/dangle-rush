@@ -11,7 +11,7 @@ import type { KeyValueStorage } from '../core/settings';
 import type { HeadSample, PuckSample, Vec3 } from '../core/types';
 import type { CalibResult } from '../tracking/calibration';
 import { CameraModel, cameraSideFromLabel, guessParams, type CamParams } from '../tracking/cameraModel';
-import { PoseHistory, createPose } from '../tracking/poseHistory';
+import { PoseHistory, createPose, rotationDeg } from '../tracking/poseHistory';
 import { TimeSync } from '../tracking/timeSync';
 import type { CalibRequest, CalibResponse, DetectionMessage, FrameInfoMessage } from './protocol';
 
@@ -27,6 +27,8 @@ interface StoredCalib {
 }
 
 const OBS_CAP = 1024;
+/** Rýchlosť otáčania hlavy sa meria z pózy v čase zachytenia a o toľko skôr (ms). */
+const HEAD_SPEED_DT_MS = 20;
 const SPREAD_N = 30;
 
 export class PuckTracker {
@@ -68,6 +70,9 @@ export class PuckTracker {
     srcHeight: 0,
     /** Rozptyl polohy puku za posledných ~30 snímok (cm); pri nehybnom puku ukazuje presnosť. */
     spreadCm: NaN,
+    /** Zahodené zábery: hlava sa rýchlo otáčala / priesečník s podlahou príliš ďaleko. */
+    rejectedMotion: 0,
+    rejectedRange: 0,
   };
 
   readonly calib = {
@@ -90,6 +95,7 @@ export class PuckTracker {
   private spreadHead = 0;
   private spreadCount = 0;
   private readonly pose = createPose();
+  private readonly posePrev = createPose();
   private readonly hit: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly origin: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly playPoint: Vec3 = { x: 0, y: 0, z: 0 };
@@ -218,7 +224,21 @@ export class PuckTracker {
 
     const capture = frameTime - this.params.latencyMs;
     if (!this.poses.sample(capture, this.pose)) return;
+    // Rýchle otáčanie hlavy: malá chyba v oneskorení kamery = veľká chyba polohy puku.
+    const c = this.cfg.camera;
+    if (this.poses.sample(capture - HEAD_SPEED_DT_MS, this.posePrev)) {
+      const speed = (rotationDeg(this.posePrev, this.pose) * 1000) / HEAD_SPEED_DT_MS;
+      if (speed > c.maxHeadSpeedDeg) {
+        s.rejectedMotion++;
+        return;
+      }
+    }
     if (!this.model.pixelToPlane(this.pose, msg.u, msg.v, this.planeY, this.hit)) return;
+    const o = this.model.origin(this.pose, this.origin);
+    if (Math.hypot(this.hit.x - o.x, this.hit.z - o.z) > c.maxRange) {
+      s.rejectedRange++;
+      return;
+    }
     const p = this.puck;
     p.valid = true;
     p.x = this.hit.x;
@@ -228,7 +248,6 @@ export class PuckTracker {
     p.u = msg.u;
     p.v = msg.v;
     p.radius = msg.radius;
-    const o = this.model.origin(this.pose, this.origin);
     const dist = Math.hypot(this.hit.x - o.x, this.hit.y - o.y, this.hit.z - o.z);
     p.expectedRadius = (this.params.f * this.targetRadius) / dist;
     playFrame.toPlayPoint(this.playPoint, this.hit.x, this.hit.y, this.hit.z);

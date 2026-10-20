@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { CameraModel, cameraSideFromLabel, guessParams, rotateVec, scaleParams } from '../src/tracking/cameraModel';
 import { BlobDetector, matchesColor } from '../src/tracking/detector';
-import { PoseHistory, createPose } from '../src/tracking/poseHistory';
+import { PoseHistory, createPose, rotationDeg } from '../src/tracking/poseHistory';
 import { TimeSync } from '../src/tracking/timeSync';
 import { drawDisc, drawRect, poseAt, quatYPR, woodImage } from './trackingHelpers';
 
@@ -11,6 +11,27 @@ const GREEN: [number, number, number] = [70, 205, 80];
 const ORANGE: [number, number, number] = [245, 105, 40];
 
 describe('história pózy', () => {
+  it('uhol medzi orientáciami (rýchlosť otáčania hlavy)', () => {
+    const a = createPose();
+    const b = createPose();
+    const set = (p: typeof a, q: { x: number; y: number; z: number; w: number }) => {
+      p.qx = q.x;
+      p.qy = q.y;
+      p.qz = q.z;
+      p.qw = q.w;
+    };
+    set(a, quatYPR(10, -40));
+    set(b, quatYPR(10, -40));
+    expect(rotationDeg(a, b)).toBeCloseTo(0, 3);
+    set(b, quatYPR(10, -10));
+    expect(rotationDeg(a, b)).toBeCloseTo(30, 3);
+    set(b, quatYPR(-20, -40));
+    expect(rotationDeg(a, b)).toBeGreaterThan(20);
+    // q a −q sú tá istá rotácia.
+    set(b, { x: -a.qx, y: -a.qy, z: -a.qz, w: -a.qw });
+    expect(rotationDeg(a, b)).toBeCloseTo(0, 3);
+  });
+
   it('interpoluje polohu aj orientáciu medzi snímkami', () => {
     const h = new PoseHistory(16);
     const p = createPose();

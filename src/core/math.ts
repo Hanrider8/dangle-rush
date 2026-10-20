@@ -57,6 +57,14 @@ export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
+/**
+ * Bod (x, z) na obdĺžniku na podlahe so stredom (0, cz), šírkou width (x) a hĺbkou depth (z),
+ * zväčšenom o margin na každú stranu.
+ */
+export function onRect(x: number, z: number, cz: number, width: number, depth: number, margin: number): boolean {
+  return Math.abs(x) <= width / 2 + margin && Math.abs(z - cz) <= depth / 2 + margin;
+}
+
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }

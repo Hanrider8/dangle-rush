@@ -16,6 +16,7 @@
  */
 import type { Config } from '../config';
 import type { EventQueue } from './events';
+import { onRect } from './math';
 import { Rng } from './rng';
 import { comboMultiplier } from './scoring';
 import type { DekerSize, Difficulty } from './settings';
@@ -190,7 +191,11 @@ export class DekerSim {
   step(dt: number, puck: PuckSample = NO_PUCK): void {
     if (this.finished) return;
     this.time += dt;
-    const usable = puck.valid && puck.age <= this.cfg.puck.maxAge;
+    // Puk mimo podložky je falošná detekcia (pohľad hore, rýchly pohyb hlavy): nepoužije sa.
+    const p = this.cfg.puck;
+    const m = this.cfg.deker.mat;
+    const usable =
+      puck.valid && puck.age <= p.maxAge && onRect(puck.x, puck.z, -m.centerDistance, m.width, m.depth, p.zoneMargin);
     if (!this.lit) {
       this.gapLeft -= dt;
       if (this.gapLeft <= 1e-9) this.light(usable ? puck : null);

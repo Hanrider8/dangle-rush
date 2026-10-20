@@ -3,6 +3,7 @@
  * vlastnosti snímok), ako rýchlo chodia snímky, ako sa darí hľadať puk a výsledok kalibrácie.
  * Hráč ju skopíruje alebo odfotí a pošle ďalej.
  */
+import { CONFIG } from '../config';
 import type { CamParams } from '../tracking/cameraModel';
 import type { FrameStats } from './frameStats';
 import type { CameraSource } from './source';
@@ -105,6 +106,9 @@ export function buildReport(c: ReportContext): string {
   );
   lines.push(
     `Puk: nájdený v ${s.found} snímkach (${(s.foundRate * 100).toFixed(0)} % za poslednú sekundu) · premietnutý ${s.projected}× · cieľ ${tracker.target}`,
+  );
+  lines.push(
+    `Zahodené zábery: rýchly pohyb hlavy ${s.rejectedMotion}× · priesečník ďalej ako ${CONFIG.camera.maxRange} m ${s.rejectedRange}×`,
   );
   lines.push(`  farba: ${c.color}`);
   const p = tracker.puck;

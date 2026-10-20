@@ -153,6 +153,9 @@ Kľúčové invarianty:
   prešiel čiarou puku (`z − speed·age ≥ puck.z`), podľa `puckPassesElement`. Výsledok je v `o.elemResult[i]`
   (render posúdený prvok skryje). Úspech: body `puck.scorePerHit` × násobiteľ a combo; minutie combo vynuluje.
   Bez puku prvok len prejde stredom plochy (ELEM_UNKNOWN, udalosť floorPass).
+  Puk mimo plochy (`playArea`, v Dekeri podložka, s rezervou `puck.zoneMargin`) sa nepoužije: falošná poloha
+  ďaleko vpredu (pohľad na spoluhráča) by inak posúdila prekážky, ktoré ešte len idú. Tracker navyše zahodí
+  zábery pri rýchlom otáčaní hlavy (`camera.maxHeadSpeedDeg`) a priesečníky ďalej ako `camera.maxRange`.
 - **Hlava hore** (`sim.headUp`, `config.headUp`): krokuje sa v `sim.step`, takže pauza ju zmrazí. Má vlastný
   seedovaný `Rng`, takže spawner dostane rovnakú postupnosť vĺn ako bez nej. Smer pohľadu ide do simulácie ako
   vstup (`Game.headFwd`).

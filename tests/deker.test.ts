@@ -312,6 +312,16 @@ describe('Deker: zásahy a body', () => {
     expect(c.sim.near.lights + c.sim.far.lights).toBe(0);
   });
 
+  it('puk mimo podložky (pohľad hore, falošná detekcia) sa nepoužije: nie je to minutie, len prechod', () => {
+    const { sim, events } = makeSim(5);
+    untilLit(sim, events, puckAt(AWAY.x, AWAY.z));
+    const far = -D.mat.centerDistance - D.mat.depth / 2 - CONFIG.puck.zoneMargin - 0.5;
+    const e = advance(sim, events, sim.timeout + DT, puckAt(0, far));
+    expect(e.some((x) => x.type === 'dekerPass')).toBe(true);
+    expect(sim.misses).toBe(0);
+    expect(sim.near.seen + sim.far.seen).toBe(0);
+  });
+
   it('limit na svetlo závisí od obtiažnosti', () => {
     for (const d of ['warmup', 'easy', 'medium', 'hard', 'pro'] as const) {
       expect(makeSim(1, d).sim.timeout).toBe(D.targetTime[d]);

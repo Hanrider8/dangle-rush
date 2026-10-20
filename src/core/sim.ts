@@ -7,6 +7,7 @@
 import type { Config } from '../config';
 import { sweptHeadHit } from './collision';
 import { levelParams } from './difficulty';
+import { onRect } from './math';
 import type { EventQueue } from './events';
 import { HeadUpDrill, SIGNAL_SEEN } from './headUp';
 import {
@@ -319,11 +320,14 @@ export class GameplaySim {
   /**
    * Posúdenie prvkov vzoru pukom. Kamera vidí puk s oneskorením (puck.age): prvok sa posúdi, keď
    * v čase zachytenia puku už prešiel jeho čiarou, a podľa polohy puku v tom čase. Bez puku (alebo
-   * keď ho kamera uvidela až neskoro) prvok len prejde stredom plochy ako neposúdený.
+   * keď ho kamera uvidela až neskoro, alebo je mimo plochy) prvok len prejde stredom plochy ako neposúdený.
    */
   private judgeFloor(o: Obstacle, ballZ: number, puck: PuckSample): void {
     const p = this.cfg.puck;
-    const usable = puck.valid && puck.age <= p.maxAge;
+    const a = this.cfg.playArea;
+    // Puk mimo plochy je falošná detekcia (pohľad hore, rýchly pohyb hlavy): neposudzuje sa ním.
+    const usable =
+      puck.valid && puck.age <= p.maxAge && onRect(puck.x, puck.z, -a.centerDistance, a.width, a.depth, p.zoneMargin);
     for (let i = 0; i < o.elemCount; i++) {
       if (o.elemResult[i] !== ELEM_PENDING) continue;
       const z = o.z + o.elemDz[i]!;

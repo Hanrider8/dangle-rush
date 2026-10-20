@@ -214,6 +214,11 @@ export const CONFIG = {
     maxLateJudge: 0.5,
     /** Body za prvok, ktorým puk prešiel (krát combo násobiteľ). */
     scorePerHit: 25,
+    /**
+     * Puk z kamery sa použije, len keď je na ploche (DangleRush: playArea, Deker: podložka) s touto rezervou (m).
+     * Falošná poloha ďaleko vpredu (pohľad hore, zlá detekcia) by inak posúdila prekážky, ktoré ešte len idú.
+     */
+    zoneMargin: 0.3,
   },
 
   /**
@@ -348,6 +353,13 @@ export const CONFIG = {
     procWidth: 320,
     /** Ako často worker pošle náhľad kamery (ms). */
     previewIntervalMs: 120,
+    /**
+     * Záber sa zahodí, ak sa hlava v čase zachytenia otáča rýchlejšie (°/s): chyba v oneskorení kamery
+     * vtedy posunie odhad puku o veľa (pohľad na spoluhráča a späť). Zahodí sa aj priesečník s podlahou
+     * ďalej ako maxRange (m vodorovne od kamery), lúče pri horizonte sú veľmi nepresné.
+     */
+    maxHeadSpeedDeg: 120,
+    maxRange: 2.5,
     /**
      * Predvolená farba cieľa: odtieň v stupňoch (hueMin–hueMax; hueMin > hueMax = cez 0°), najmenšia
      * sýtosť a jas (0–1). Hráč si farbu môže naučiť ťuknutím na puk v náhľade (camera.learn).

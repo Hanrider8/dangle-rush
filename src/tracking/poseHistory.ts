@@ -19,6 +19,12 @@ export function createPose(): Pose {
 
 const STRIDE = 7;
 
+/** Uhol medzi orientáciami dvoch póz (stupne, 0–180). */
+export function rotationDeg(a: Pose, b: Pose): number {
+  const dot = Math.abs(a.qx * b.qx + a.qy * b.qy + a.qz * b.qz + a.qw * b.qw);
+  return (2 * Math.acos(Math.min(1, dot)) * 180) / Math.PI;
+}
+
 export class PoseHistory {
   private readonly times: Float64Array;
   private readonly data: Float64Array;
